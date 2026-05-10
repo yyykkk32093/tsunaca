@@ -84,12 +84,19 @@ export type SearchCommunitiesParams = {
     offset?: number
 }
 
-/** サブコミュニティ一覧行（カルーセル表示用） */
+/** サブコミュニティ一覧行（カルーセル/レスト表示用）
+ * W6-01: CommunityCard を全一覧で使えるよう CommunityListItem 互換の必要フィールドを含む。
+ */
 export type SubCommunityListItem = {
     id: string
+    parentId: string | null
     name: string
+    description: string | null
     logoUrl: string | null
     memberCount: number
+    latestAnnouncementTitle: string | null
+    latestAnnouncementAt: Date | null
+    bookmarked: boolean
 }
 
 export interface ICommunityRepository {
@@ -104,6 +111,6 @@ export interface ICommunityRepository {
     findPublicDetailById(id: string): Promise<CommunityDetail | null>
     /** W4-05: 子コミュニティIDリスト取得（active のみ） */
     findChildrenIds(parentId: string): Promise<string[]>
-    /** 子コミュニティ一覧（詳細付き） */
-    findChildrenWithDetails(parentId: string): Promise<SubCommunityListItem[]>
+    /** 子コミュニティ一覧（詳細付き）。viewerUserId が null の場合 bookmarked は常に false 。 */
+    findChildrenWithDetails(parentId: string, viewerUserId: string | null): Promise<SubCommunityListItem[]>
 }

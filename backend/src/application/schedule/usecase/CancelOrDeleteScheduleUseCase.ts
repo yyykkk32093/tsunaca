@@ -7,6 +7,7 @@ import { UserId } from '@/domains/_sharedDomains/model/valueObject/UserId.js'
 import type { IActivityRepository } from '@/domains/activity/domain/repository/IActivityRepository.js'
 import type { IScheduleRepository } from '@/domains/activity/schedule/domain/repository/IScheduleRepository.js'
 import type { IParticipationRepository } from '@/domains/activity/schedule/participation/domain/repository/IParticipationRepository.js'
+import type { IWaitlistEntryRepository } from '@/domains/activity/schedule/waitlist/domain/repository/IWaitlistEntryRepository.js'
 import { Announcement } from '@/domains/announcement/domain/model/entity/Announcement.js'
 import { AnnouncementContent } from '@/domains/announcement/domain/model/valueObject/AnnouncementContent.js'
 import { AnnouncementId } from '@/domains/announcement/domain/model/valueObject/AnnouncementId.js'
@@ -23,6 +24,7 @@ export type CancelOrDeleteScheduleTxRepositories = {
     activity: IActivityRepository
     membership: ICommunityMembershipRepository
     participation: IParticipationRepository
+    waitlist: IWaitlistEntryRepository
     notification: INotificationRepository
     outbox: IOutboxRepository
     announcement: IAnnouncementRepository
@@ -46,6 +48,11 @@ export class CancelOrDeleteScheduleUseCase {
         scope: ScheduleScope
         notifyOption: NotifyOption
     }): Promise<{ activityDeleted: boolean }> {
+        // Wave6 W6-10: 削除時は「お知らせ投稿」は作成しない（UI も選択肢を隠している）
+        // push_only / none はそのまま尊重する
+        if (input.operation === 'delete' && input.notifyOption === 'announcement') {
+            input = { ...input, notifyOption: 'push_only' }
+        }
         let activityDeleted = false
         await this.unitOfWork.run(async (repos) => {
             const schedule = await repos.schedule.findById(input.scheduleId)
@@ -92,6 +99,15 @@ export class CancelOrDeleteScheduleUseCase {
                         recipientUserIds.add(uid)
                     }
                 }
+
+                // Wave6 W6-09: キャンセル待ちユーザーも通知対象に含める
+                const waitlist = await repos.waitlist.findsByScheduleId(target.getId().getValue())
+                for (const w of waitlist) {
+                    const uid = w.getUserId()?.getValue()
+                    if (uid && uid !== input.userId) {
+                        recipientUserIds.add(uid)
+                    }
+                }
             }
 
             // Activity softDelete 判定
@@ -121,35 +137,44 @@ export class CancelOrDeleteScheduleUseCase {
             }
 
             // 通知なしの場合はここで終了
-            if (input.notifyOption === 'none' || recipientUserIds.size === 0) return
+            if (input.notifyOption === 'none') return
 
-            const operationLabel = input.operation === 'cancel' ? 'キャンセル' : '削除'
-            const scopeLabel = input.scope === 'all' ? '（全スケジュール）' : ''
+            // Wave6 W6-09: 単発 / 全件 / Activity 全体中止 で文言を分岐
+            const operationLabel = input.operation === 'cancel' ? '中止' : '削除'
+            const isActivityWide = activityDeleted || (input.scope === 'all' && input.operation === 'cancel')
+            // タイトル / 本文（アクティビティ作成時の文言と統一。
+            // 開催日時はお知らせ詳細側で `scheduleInfo` を解決してリンク描画する）
+            const titleText = input.operation === 'cancel' ? '予定中止' : '予定削除'
+            const bodyText = isActivityWide
+                ? (input.operation === 'delete'
+                    ? `アクティビティ「${activityTitle}」が削除されました。関連スケジュールはすべて中止されます。`
+                    : `アクティビティ「${activityTitle}」の全スケジュールが中止となりました。`)
+                : `アクティビティ「${activityTitle}」が${operationLabel}となりました。`
 
             // Announcement 作成（キャンセル時のみ。削除時はお知らせ自体を消すため通知お知らせは作成しない）
+            // ※ 0 参加者でも notifyOption === 'announcement' なら投稿する
             if (input.notifyOption === 'announcement' && input.operation !== 'delete') {
                 const announcementId = AnnouncementId.create(this.idGenerator.generate())
                 const announcement = Announcement.create({
                     id: announcementId,
                     communityId: CommunityId.create(communityId),
                     authorId: UserId.create(input.userId),
-                    title: AnnouncementTitle.create(`「${activityTitle}」が${operationLabel}されました${scopeLabel}`),
-                    content: AnnouncementContent.create(
-                        `アクティビティ「${activityTitle}」のスケジュールが${operationLabel}されました。`,
-                    ),
+                    title: AnnouncementTitle.create(titleText),
+                    content: AnnouncementContent.create(bodyText),
                     activityId: activity.getId(),
                 })
                 await repos.announcement.save(announcement)
             }
 
-            // プッシュ通知
+            // プッシュ通知（受信者がいなければスキップ）
+            if (recipientUserIds.size === 0) return
             const notificationType = input.operation === 'cancel' ? 'SCHEDULE_CANCELLED' : 'ACTIVITY_CANCELLED'
             for (const uid of recipientUserIds) {
                 await this.notificationService.prepareNotification(repos, {
                     userId: uid,
                     type: notificationType,
-                    title: `スケジュールが${operationLabel}されました`,
-                    body: `「${activityTitle}」のスケジュールが${operationLabel}されました`,
+                    title: titleText,
+                    body: bodyText,
                     referenceId: input.scheduleId,
                     referenceType: 'SCHEDULE',
                     metadata: {

@@ -26,11 +26,14 @@ export function useFeatureGate() {
         return user.limits[limitKey] ?? 0
     }
 
-    /** 有料プラン（SUBSCRIBER or LIFETIME）かどうか */
+    /** 有料プラン（LITE/PRO/LIFETIME）かどうか */
     const isPaid = user != null && user.plan !== 'FREE'
+
+    /** PREMIUMコミュニティグレード対象プラン（PRO/LIFETIME）かどうか */
+    const isPremiumPlan = user != null && (user.plan === 'PRO' || user.plan === 'LIFETIME')
 
     /** 現在のプラン */
     const plan = user?.plan ?? null
 
-    return { canUse, getLimit, isPaid, plan } as const
+    return { canUse, getLimit, isPaid, isPremiumPlan, plan } as const
 }

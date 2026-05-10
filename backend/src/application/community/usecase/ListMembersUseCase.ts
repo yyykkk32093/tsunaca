@@ -15,6 +15,7 @@ export class ListMembersUseCase {
             joinedAt: Date
             displayName: string | null
             avatarUrl: string | null
+            level: number | null
         }>
     }> {
         const memberships = await this.membershipRepository.findsByCommunityId(input.communityId)
@@ -34,6 +35,7 @@ export class ListMembersUseCase {
                     joinedAt: m.getJoinedAt(),
                     displayName: user?.getDisplayName()?.getValue() ?? null,
                     avatarUrl: user?.getAvatarUrl()?.getValue() ?? null,
+                    level: m.getLevel(),
                 }
             }),
         }

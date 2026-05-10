@@ -15,6 +15,27 @@ export function useMyChannels() {
     })
 }
 
+/** W5-25: コミュニティツリー+未読数 */
+export function useCommunityChannelTree() {
+    const { isConnected } = useSocket()
+    return useQuery({
+        queryKey: ['channels', 'community-tree'],
+        queryFn: () => chatApi.getCommunityChannelTree(),
+        refetchInterval: isConnected ? false : 30_000,
+    })
+}
+
+/** W5-25: 既読マーク */
+export function useMarkChannelRead() {
+    const qc = useQueryClient()
+    return useMutation({
+        mutationFn: (channelId: string) => chatApi.markChannelRead(channelId),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['channels', 'community-tree'] })
+        },
+    })
+}
+
 /** コミュニティのチャットチャンネル取得 */
 export function useCommunityChannel(communityId: string) {
     return useQuery({

@@ -4,8 +4,10 @@
  * CommunityCreatePage (Step2, Step3) と CreateSubCommunityPage (Step2, Step3) で共有。
  * 参加・活動設定 + カテゴリ・タグ入力を提供する。
  */
+import { CategoryPicker } from '@/features/community/components/CategoryPicker'
 import { LocationSettings, type LocationEntry } from '@/features/community/components/LocationSettings'
 import { useCommunityMasters } from '@/features/community/hooks/useCommunityQueries'
+import { useParticipationLevelLabels } from '@/features/master/hooks/useParticipationLevels'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
@@ -44,10 +46,8 @@ export const GENDER_OPTIONS = [
     { value: 'ANY', label: '指定なし' },
 ] as const
 
-export const PARTICIPATION_LEVEL_LABELS = [
-    '未経験', 'ビギナー', '初級', '初中級', '中級',
-    '中上級', '上級', '超上級', 'プロレベル',
-] as const
+// レベル論理名は ParticipationLevelMaster (DB) から取得する。
+// 表示侧は useParticipationLevelLabels() を使うこと。
 
 const AGE_OPTIONS = [
     { value: 'none', label: '指定なし' },
@@ -108,6 +108,8 @@ interface SettingsStep2Props {
 }
 
 export function SettingsStep2({ data, update }: SettingsStep2Props) {
+    const levelLabels = useParticipationLevelLabels()
+    const fmtLv = (lv: number) => levelLabels[lv] ?? `Lv${lv}`
     const handlePublicChange = (pub: boolean) => {
         update({ isPublic: pub, ...(pub ? {} : { joinMethod: 'INVITATION' as const }) })
     }
@@ -213,7 +215,7 @@ export function SettingsStep2({ data, update }: SettingsStep2Props) {
                 </label>
                 {data.recommendedLevelEnabled ? (
                     <>
-                        <p className="text-xs text-gray-500">{PARTICIPATION_LEVEL_LABELS[data.recommendedLevelRange[0]]} 〜 {PARTICIPATION_LEVEL_LABELS[data.recommendedLevelRange[1]]}</p>
+                        <p className="text-xs text-gray-500">{fmtLv(data.recommendedLevelRange[0])} ～ {fmtLv(data.recommendedLevelRange[1])}</p>
                         <Slider
                             min={0}
                             max={8}
@@ -223,8 +225,8 @@ export function SettingsStep2({ data, update }: SettingsStep2Props) {
                             className="w-full"
                         />
                         <div className="flex justify-between text-[10px] text-gray-400">
-                            <span>未経験</span>
-                            <span>プロレベル</span>
+                            <span>{fmtLv(0)}</span>
+                            <span>{fmtLv(8)}</span>
                         </div>
                     </>
                 ) : (
@@ -246,6 +248,8 @@ interface SettingsStep3Props {
 
 export function SettingsStep3({ data, update, basicInfo }: SettingsStep3Props) {
     const { data: masters } = useCommunityMasters()
+    const levelLabels = useParticipationLevelLabels()
+    const fmtLv = (lv: number) => levelLabels[lv] ?? `Lv${lv}`
     const categories = masters?.categories ?? []
 
     const addTag = () => {
@@ -260,14 +264,11 @@ export function SettingsStep3({ data, update, basicInfo }: SettingsStep3Props) {
             <h2 className="text-base font-semibold text-gray-800 border-b pb-2">カテゴリ・タグ</h2>
             <div className="space-y-1.5">
                 <Label>カテゴリ <span className="text-red-500">*</span></Label>
-                <div className="flex flex-wrap gap-2">
-                    {categories.map((cat) => (
-                        <Button key={cat.id} type="button" variant={data.selectedCategoryId === cat.id ? 'default' : 'outline'} size="sm"
-                            onClick={() => update({ selectedCategoryId: data.selectedCategoryId === cat.id ? '' : cat.id })}>
-                            {cat.name}
-                        </Button>
-                    ))}
-                </div>
+                <CategoryPicker
+                    categories={categories}
+                    selectedId={data.selectedCategoryId}
+                    onChange={(id) => update({ selectedCategoryId: id })}
+                />
                 {!data.selectedCategoryId && <p className="text-xs text-red-500">カテゴリを選択してください</p>}
             </div>
             <div className="space-y-1.5">
@@ -298,7 +299,7 @@ export function SettingsStep3({ data, update, basicInfo }: SettingsStep3Props) {
                         {data.targetGender.length > 0 && (<div className="flex gap-2"><dt className="text-gray-500 w-24 shrink-0">性別:</dt><dd>{data.targetGender.map((g) => GENDER_OPTIONS.find((o) => o.value === g)?.label).join(', ')}</dd></div>)}
                         {(data.ageMin || data.ageMax) && (<div className="flex gap-2"><dt className="text-gray-500 w-24 shrink-0">年齢:</dt><dd>{data.ageMin || '0'}歳 〜 {data.ageMax || '制限なし'}</dd></div>)}
                         {data.freqUnit && data.freqCount && (<div className="flex gap-2"><dt className="text-gray-500 w-24 shrink-0">活動頻度:</dt><dd>{data.freqUnit}{data.freqCount}回</dd></div>)}
-                        <div className="flex gap-2"><dt className="text-gray-500 w-24 shrink-0">レベル:</dt><dd>{PARTICIPATION_LEVEL_LABELS[data.recommendedLevelRange[0]]} 〜 {PARTICIPATION_LEVEL_LABELS[data.recommendedLevelRange[1]]}</dd></div>
+                        <div className="flex gap-2"><dt className="text-gray-500 w-24 shrink-0">レベル:</dt><dd>{fmtLv(data.recommendedLevelRange[0])} ～ {fmtLv(data.recommendedLevelRange[1])}</dd></div>
                         {data.selectedCategoryId && (<div className="flex gap-2"><dt className="text-gray-500 w-24 shrink-0">カテゴリ:</dt><dd>{categories.find((c) => c.id === data.selectedCategoryId)?.name}</dd></div>)}
                         {data.tags.length > 0 && (<div className="flex gap-2"><dt className="text-gray-500 w-24 shrink-0">タグ:</dt><dd>{data.tags.join(', ')}</dd></div>)}
                     </dl>

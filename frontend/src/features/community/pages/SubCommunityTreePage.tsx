@@ -1,5 +1,5 @@
-import { useCommunity, useSubCommunities } from '@/features/community/hooks/useCommunityQueries'
-import { ArrowLeft, ChevronRight, Network, Users } from 'lucide-react'
+import { useCommunity, useMyRole, useSubCommunities } from '@/features/community/hooks/useCommunityQueries'
+import { ArrowLeft, ChevronRight, Network, Plus, Users } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 /**
@@ -24,6 +24,10 @@ export function SubCommunityTreePage() {
     const { data: childrenData, isLoading: childrenLoading } = useSubCommunities(rootId)
     const children = childrenData?.children ?? []
 
+    // W6-05: ルートコミュニティに対する現ユーザーのロール。
+    // OWNER/ADMIN のみサブコミュニティ作成 CTA を表示。
+    const { isAdminOrAbove } = useMyRole(rootId)
+
     const isLoading = currentLoading || rootLoading || childrenLoading
 
     return (
@@ -35,9 +39,19 @@ export function SubCommunityTreePage() {
                 <ArrowLeft size={16} /> 戻る
             </button>
 
-            <div className="flex items-center gap-2">
-                <Network size={18} className="text-blue-600" />
-                <h1 className="text-lg font-bold text-gray-900">コミュニティツリー</h1>
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <Network size={18} className="text-blue-600" />
+                    <h1 className="text-lg font-bold text-gray-900">コミュニティツリー</h1>
+                </div>
+                {isAdminOrAbove && (
+                    <button
+                        onClick={() => navigate(`/communities/${rootId}/sub/new`)}
+                        className="flex items-center gap-1 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700"
+                    >
+                        <Plus size={14} /> サブコミュニティ作成
+                    </button>
+                )}
             </div>
 
             {isLoading ? (

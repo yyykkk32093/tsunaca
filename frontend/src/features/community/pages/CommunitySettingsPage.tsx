@@ -1,7 +1,12 @@
 import { useAuth } from '@/app/providers/AuthProvider'
+import { CategoryPicker } from '@/features/community/components/CategoryPicker'
 import { LocationSettings, type LocationEntry } from '@/features/community/components/LocationSettings'
+import { MemberLevelSelect } from '@/features/community/components/MemberLevelSelect'
 import { useCommunity, useCommunityMasters, useLeaveCommunity, useMembers, useUpdateCommunity } from '@/features/community/hooks/useCommunityQueries'
 import { useAuditLogs, useChangeMemberRole, useRemoveMember } from '@/features/community/hooks/useCommunitySettingsQueries'
+import { useConnectStatus, useStartOnboarding } from '@/features/community/hooks/useConnectQueries'
+import { useParticipationLevelLabels } from '@/features/master/hooks/useParticipationLevels'
+import { formatAuditSummary } from '@/shared/audit-labels'
 import { UnsavedChangesDialog } from '@/shared/components/UnsavedChangesDialog'
 import { CharacterCounter } from '@/shared/components/ui/CharacterCounter'
 import { Button } from '@/shared/components/ui/button'
@@ -24,6 +29,7 @@ import {
     SelectValue,
 } from '@/shared/components/ui/select'
 import { Separator } from '@/shared/components/ui/separator'
+import { Slider } from '@/shared/components/ui/slider'
 import { Textarea } from '@/shared/components/ui/textarea'
 import { uploadFile } from '@/shared/lib/uploadClient'
 import { useUnsavedChangesWarning } from '@/shared/lib/useUnsavedChangesWarning'
@@ -33,6 +39,7 @@ import {
     ChevronRight,
     Crown,
     ExternalLink,
+    HelpCircle,
     History,
     LogOut,
     Shield,
@@ -43,7 +50,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 
-type Section = 'settings' | 'members' | 'audit' | 'webhook'
+type Section = 'settings' | 'members' | 'audit'
+type MemberManageMode = 'role' | 'level'
 
 export default function CommunitySettingsPage() {
     const { id: communityId } = useParams<{ id: string }>()
@@ -57,9 +65,18 @@ export default function CommunitySettingsPage() {
     const removeMember = useRemoveMember(communityId!)
     const leaveCommunity = useLeaveCommunity()
     const navigate = useNavigate()
+    const { data: connectStatus } = useConnectStatus(communityId)
+    const startOnboarding = useStartOnboarding(communityId!)
+    const levelLabels = useParticipationLevelLabels()
 
     const [openSection, setOpenSection] = useState<Section | null>('settings')
     const [showLeaveDialog, setShowLeaveDialog] = useState(false)
+    const [showStripeInfo, setShowStripeInfo] = useState(false)
+    const [showCreditCardConnectDialog, setShowCreditCardConnectDialog] = useState(false)
+    const [memberManageMode, setMemberManageMode] = useState<MemberManageMode>('role')
+
+    // Stripe Connect が完全に有効かどうか
+    const isStripeReady = connectStatus?.hasAccount === true && connectStatus?.chargesEnabled === true
 
     // ---- Profile form state ----
     const [name, setName] = useState('')
@@ -87,6 +104,8 @@ export default function CommunitySettingsPage() {
     const [tagInput, setTagInput] = useState('')
     // category state
     const [selectedCategoryId, setSelectedCategoryId] = useState<string>('')
+    const [recommendedLevelEnabled, setRecommendedLevelEnabled] = useState(false)
+    const [recommendedLevelRange, setRecommendedLevelRange] = useState<[number, number]>([0, 8])
 
     useEffect(() => {
         if (community) {
@@ -100,6 +119,13 @@ export default function CommunitySettingsPage() {
             setIsPublic(community.isPublic ?? true)
             setEditedTags(community.tags ?? [])
             setSelectedCategoryId(community.categories?.[0]?.id ?? '')
+            if (community.recommendedLevelMin != null && community.recommendedLevelMax != null) {
+                setRecommendedLevelEnabled(true)
+                setRecommendedLevelRange([community.recommendedLevelMin, community.recommendedLevelMax])
+            } else {
+                setRecommendedLevelEnabled(false)
+                setRecommendedLevelRange([0, 8])
+            }
             // 活動頻度をパース（例: "週1回" → unit='週', count='1'）
             const freq = community.activityFrequency ?? ''
             const freqMatch = freq.match(/^(週|月|年)(\d+)回$/)
@@ -154,7 +180,19 @@ export default function CommunitySettingsPage() {
     // category dirty判定
     const categoryDirty = selectedCategoryId !== (community?.categories?.[0]?.id ?? '')
 
-    const isDirty = profileDirty || paymentDirty || joinDirty || locationDirty || tagsDirty || categoryDirty
+    const communityRecommendedEnabled = community?.recommendedLevelMin != null && community?.recommendedLevelMax != null
+    const communityRecommendedRange: [number, number] = [
+        community?.recommendedLevelMin ?? 0,
+        community?.recommendedLevelMax ?? 8,
+    ]
+    const recommendedLevelDirty =
+        recommendedLevelEnabled !== communityRecommendedEnabled ||
+        (recommendedLevelEnabled && (
+            recommendedLevelRange[0] !== communityRecommendedRange[0] ||
+            recommendedLevelRange[1] !== communityRecommendedRange[1]
+        ))
+
+    const isDirty = profileDirty || paymentDirty || joinDirty || locationDirty || tagsDirty || categoryDirty || recommendedLevelDirty
 
     // タグ上限（FEガード）
     const TAG_LIMIT_FREE = 5
@@ -222,6 +260,12 @@ export default function CommunitySettingsPage() {
                 isPublic,
                 activityFrequency: frequencyStr || null,
                 ...(categoryDirty && selectedCategoryId ? { categoryIds: [selectedCategoryId] } : {}),
+                ...(recommendedLevelDirty
+                    ? {
+                        recommendedLevelMin: recommendedLevelEnabled ? recommendedLevelRange[0] : null,
+                        recommendedLevelMax: recommendedLevelEnabled ? recommendedLevelRange[1] : null,
+                    }
+                    : {}),
                 ...(tagsDirty ? { tags: editedTags } : {}),
                 ...(locationDirty && editedLocations ? {
                     locations: editedLocations
@@ -240,6 +284,10 @@ export default function CommunitySettingsPage() {
     }
 
     const togglePaymentMethod = (method: string) => {
+        if (method === 'CREDIT_CARD' && !isStripeReady) {
+            setShowCreditCardConnectDialog(true)
+            return
+        }
         setEnabledMethods(prev =>
             prev.includes(method) ? prev.filter(m => m !== method) : [...prev, method]
         )
@@ -314,6 +362,60 @@ export default function CommunitySettingsPage() {
 
                     {/* 支払い設定セクション */}
                     <p className="text-xs font-semibold text-gray-500">支払い設定</p>
+
+                    {/* 案B: クレジットカード連携ステータス帯 */}
+                    {isOwner && (
+                        <div className="rounded-lg border p-3 space-y-2 bg-slate-50 border-slate-200">
+                            {community?.grade !== 'PREMIUM' ? (
+                                <>
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-2 w-2 bg-gray-400 rounded-full" />
+                                        <p className="text-sm font-medium text-gray-700">クレジットカード連携: 利用不可</p>
+                                    </div>
+                                    <p className="text-xs text-gray-500">PREMIUM グレードで利用できます。</p>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`h-2 w-2 rounded-full ${isStripeReady ? 'bg-green-500' : 'bg-amber-500'}`} />
+                                            <p className="text-sm font-medium text-gray-800">クレジットカード連携: {isStripeReady ? '設定済み' : '未設定'}</p>
+                                            <button type="button" onClick={() => setShowStripeInfo(v => !v)} className="text-gray-400 hover:text-gray-600">
+                                                <HelpCircle className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            variant={isStripeReady ? 'outline' : 'default'}
+                                            onClick={() => startOnboarding.mutate()}
+                                            disabled={startOnboarding.isPending}
+                                            className="shrink-0"
+                                        >
+                                            {startOnboarding.isPending ? '処理中...' : isStripeReady ? '登録内容を変更する' : '今すぐ連携'}
+                                        </Button>
+                                    </div>
+
+                                    <p className="text-xs text-gray-600">
+                                        外部サービスとの連携は、設定保存ボタンとは独立して設定できます。
+                                    </p>
+
+                                    {showStripeInfo && (
+                                        <div className="bg-white border border-slate-200 rounded-lg p-3 text-xs text-gray-500 space-y-1">
+                                            <p>
+                                                支払いには{' '}
+                                                <a href="https://docs.stripe.com/security/stripe" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-0.5">
+                                                    Stripe<ExternalLink className="w-3 h-3" />
+                                                </a>
+                                                {' '}社の決済サービスを利用しています。
+                                            </p>
+                                            <p className="text-[11px] text-gray-400">※ Tsunaca では個人情報・口座情報を保持しません。</p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     <div>
                         <label className="text-xs text-gray-500">PayPay ID</label>
                         <Input value={payPayId} onChange={e => {
@@ -330,17 +432,25 @@ export default function CommunitySettingsPage() {
                         <label className="text-xs text-gray-500 block mb-2">有効な支払い方法</label>
                         {([['CASH', '現金'], ['PAYPAY', 'PayPay'], ['CREDIT_CARD', 'クレジットカード']] as const).map(([method, label]) => {
                             const isPayPayDisabled = method === 'PAYPAY' && !payPayId.trim()
+                            const isCreditCardBlockedForAdmin = method === 'CREDIT_CARD' && !isStripeReady && !isOwner
+                            const isDisabled = isPayPayDisabled || isCreditCardBlockedForAdmin
                             return (
-                                <label key={method} className={`flex items-center gap-2 py-1.5 ${isPayPayDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                                <label key={method} className={`flex items-center gap-2 py-1.5 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
                                     <input
                                         type="checkbox"
                                         checked={enabledMethods.includes(method)}
                                         onChange={() => togglePaymentMethod(method)}
-                                        disabled={isPayPayDisabled}
+                                        disabled={isDisabled}
                                         className="rounded"
                                     />
                                     <span className="text-sm">{label}</span>
                                     {isPayPayDisabled && <span className="text-xs text-gray-400">（PayPay IDを入力してください）</span>}
+                                    {method === 'CREDIT_CARD' && !isStripeReady && isOwner && (
+                                        <span className="text-xs text-gray-400">（選択時に連携案内を表示します）</span>
+                                    )}
+                                    {method === 'CREDIT_CARD' && !isStripeReady && !isOwner && (
+                                        <span className="text-xs text-gray-400">（オーナーが連携設定を完了してください）</span>
+                                    )}
                                 </label>
                             )
                         })}
@@ -405,22 +515,54 @@ export default function CommunitySettingsPage() {
 
                     <Separator />
 
-                    {/* カテゴリ選択（W5-22） */}
+                    {/* カテゴリ選択（W5-22 + ハイブリッド Combobox） */}
                     <div className="space-y-1.5">
                         <Label>カテゴリ</Label>
-                        <div className="flex flex-wrap gap-2">
-                            {(masters?.categories ?? []).map((cat) => (
-                                <Button
-                                    key={cat.id}
-                                    type="button"
-                                    variant={selectedCategoryId === cat.id ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setSelectedCategoryId(selectedCategoryId === cat.id ? '' : cat.id)}
-                                >
-                                    {cat.name}
-                                </Button>
-                            ))}
-                        </div>
+                        <CategoryPicker
+                            categories={masters?.categories ?? []}
+                            selectedId={selectedCategoryId}
+                            onChange={(id) => setSelectedCategoryId(id)}
+                        />
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <Label>推奨レベル</Label>
+                        <label className="flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                                type="checkbox"
+                                checked={recommendedLevelEnabled}
+                                onChange={(e) => {
+                                    const checked = e.target.checked
+                                    setRecommendedLevelEnabled(checked)
+                                    if (!checked) setRecommendedLevelRange([0, 8])
+                                }}
+                                className="rounded"
+                            />
+                            設定する
+                        </label>
+                        {recommendedLevelEnabled ? (
+                            <>
+                                <p className="text-xs text-gray-500">
+                                    {levelLabels[recommendedLevelRange[0]] ?? `Lv${recommendedLevelRange[0]}`}
+                                    {' ～ '}
+                                    {levelLabels[recommendedLevelRange[1]] ?? `Lv${recommendedLevelRange[1]}`}
+                                </p>
+                                <Slider
+                                    min={0}
+                                    max={8}
+                                    step={1}
+                                    value={recommendedLevelRange}
+                                    onValueChange={(v) => setRecommendedLevelRange(v as [number, number])}
+                                    className="w-full"
+                                />
+                                <div className="flex justify-between text-[10px] text-gray-400">
+                                    <span>{levelLabels[0] ?? 'Lv0'}</span>
+                                    <span>{levelLabels[8] ?? 'Lv8'}</span>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="text-xs text-gray-500">推奨レベルを設定すると、メンバーごとのレベル調整が可能になります。</p>
+                        )}
                     </div>
 
                     {/* タグ入力 */}
@@ -489,6 +631,30 @@ export default function CommunitySettingsPage() {
             <SectionHeader icon={<Shield size={18} />} title="メンバー管理" section="members" open={openSection === 'members'} toggle={toggle} />
             {openSection === 'members' && (
                 <div className="space-y-1 px-4 pb-4">
+                    {communityRecommendedEnabled && (
+                        <div className="flex items-center gap-3 flex-wrap py-2">
+                            <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
+                                <button
+                                    type="button"
+                                    onClick={() => setMemberManageMode('role')}
+                                    className={`px-3 py-1 text-xs ${memberManageMode === 'role' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                                >
+                                    権限管理
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setMemberManageMode('level')}
+                                    className={`px-3 py-1 text-xs border-l border-gray-300 ${memberManageMode === 'level' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                                >
+                                    レベル管理
+                                </button>
+                            </div>
+                            {memberManageMode === 'level' && (
+                                <span className="text-xs text-gray-500">レベルはコミュニティのメインカテゴリにおける熟練度を示します。</span>
+                            )}
+                        </div>
+                    )}
+
                     {membersData?.members
                         .sort((a, b) => roleOrder(a.role) - roleOrder(b.role))
                         .map(member => (
@@ -500,8 +666,17 @@ export default function CommunitySettingsPage() {
                                     <RoleBadge role={member.role} />
                                 </div>
 
+                                {memberManageMode === 'level' && communityRecommendedEnabled && (
+                                    <MemberLevelSelect
+                                        communityId={communityId!}
+                                        userId={member.userId}
+                                        displayName={member.displayName}
+                                        currentLevel={member.level}
+                                    />
+                                )}
+
                                 {/* ロール変更・退室ボタン (自分自身 or OWNER以外のメンバーのみ) */}
-                                {isOwner && member.userId !== authUser?.userId && (
+                                {memberManageMode === 'role' && isOwner && member.userId !== authUser?.userId && (
                                     <div className="flex items-center gap-1">
                                         {member.role !== 'OWNER' && (
                                             <>
@@ -542,7 +717,7 @@ export default function CommunitySettingsPage() {
                                     </div>
                                 )}
                                 {/* ADMIN は MEMBER のみ退室可能 */}
-                                {!isOwner && isAdmin && member.role === 'MEMBER' && member.userId !== authUser?.userId && (
+                                {memberManageMode === 'role' && !isOwner && isAdmin && member.role === 'MEMBER' && member.userId !== authUser?.userId && (
                                     <button
                                         onClick={() => handleRemoveMember(member.userId, member.displayName)}
                                         className="text-xs text-red-500 px-2 py-1 rounded hover:bg-red-50"
@@ -573,14 +748,6 @@ export default function CommunitySettingsPage() {
                             </p>
                         </div>
                     ))}
-                </div>
-            )}
-
-            {/* ===== Webhook Section (#48: 準備中) ===== */}
-            <SectionHeader icon={<ExternalLink size={18} />} title="外部連携" section="webhook" open={openSection === 'webhook'} toggle={toggle} />
-            {openSection === 'webhook' && (
-                <div className="px-4 pb-4">
-                    <p className="text-sm text-gray-400 text-center py-6">準備中です</p>
                 </div>
             )}
 
@@ -630,104 +797,35 @@ export default function CommunitySettingsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* 案C: 未連携時にCREDIT_CARD選択で表示する案内モーダル */}
+            <Dialog open={showCreditCardConnectDialog} onOpenChange={setShowCreditCardConnectDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>クレジットカード決済の連携が必要です</DialogTitle>
+                        <DialogDescription>
+                            クレジットカード決済を利用するには、外部サービスとの連携を先に完了してください。
+                            この操作は設定保存ボタンとは独立して、そのまま開始できます。
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button variant="outline">後で設定する</Button>
+                        </DialogClose>
+                        <Button
+                            onClick={() => {
+                                startOnboarding.mutate()
+                                setShowCreditCardConnectDialog(false)
+                            }}
+                            disabled={startOnboarding.isPending || !isOwner}
+                        >
+                            {startOnboarding.isPending ? '処理中...' : isOwner ? '連携を開始する' : 'オーナーに依頼してください'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
-}
-
-// ---- Audit log helpers ----
-
-/** 監査ログの物理フィールド名 → 日本語ラベル */
-const AUDIT_FIELD_LABELS: Record<string, string> = {
-    name: 'コミュニティ名',
-    description: '説明',
-    visibility: '公開設定',
-    logoUrl: 'ロゴ画像',
-    coverUrl: 'カバー画像',
-    grade: 'グレード',
-    enabledPaymentMethods: '支払い方法設定',
-    payPayId: 'PayPay ID',
-    reminderEnabled: 'リマインダー設定',
-    role: 'ロール',
-    joinMethod: '参加方式',
-    isPublic: '公開設定',
-    activityFrequency: '活動頻度',
-}
-
-/** before / after の物理値 → 表示用ラベル */
-const AUDIT_VALUE_LABELS: Record<string, string> = {
-    // enabledPaymentMethods
-    CASH: '現金',
-    PAYPAY: 'PayPay',
-    CREDIT_CARD: 'カード',
-    // visibility / isPublic
-    PUBLIC: '公開',
-    PRIVATE: '非公開',
-    true: 'はい',
-    false: 'いいえ',
-    // joinMethod
-    OPEN: '自由参加',
-    APPROVAL: '承認制',
-    INVITE_ONLY: '招待のみ',
-    // role
-    OWNER: 'オーナー',
-    ADMIN: '管理者',
-    MEMBER: 'メンバー',
-    // reminderEnabled
-    ENABLED: '有効',
-    DISABLED: '無効',
-}
-
-/** カンマ区切りの値も含め、物理値を論理名に変換 */
-function humanizeValue(raw: string | null): string {
-    if (raw == null || raw === '') return 'なし'
-    // カンマ区切り（例: "CASH,PAYPAY"）
-    if (raw.includes(',')) {
-        return raw.split(',').map(v => AUDIT_VALUE_LABELS[v.trim()] ?? v.trim()).join(', ')
-    }
-    return AUDIT_VALUE_LABELS[raw] ?? raw
-}
-
-/** summary 内の物理フィールド名を論理名に置換し、before/after を付与 */
-function formatAuditSummary(log: {
-    summary: string
-    actorDisplayName: string | null
-    actorUserId: string
-    field: string | null
-    before: string | null
-    after: string | null
-}): string {
-    let text = log.summary
-    // 長いキーから先に置換（部分一致の誤置換を防止）
-    const sorted = Object.entries(AUDIT_FIELD_LABELS)
-        .sort(([a], [b]) => b.length - a.length)
-    for (const [physical, logical] of sorted) {
-        // 単語境界で囲まれた物理名を論理名に置換
-        const regex = new RegExp(`\\b${physical}\\b`, 'g')
-        text = text.replace(regex, logical)
-    }
-    // ユーザー関連アクション（ロール変更・退室・委譲）の (名前) → (ユーザ名：名前)
-    const userActionPatterns = [
-        /ロールを .+ に変更しました/,
-        /退室させました/,
-        /委譲しました/,
-    ]
-    if (userActionPatterns.some(p => p.test(text))) {
-        text = text.replace(/\(([^)]+)\)/, '(ユーザ名：$1)')
-    }
-    // before / after がある場合、変更前後を付与（ロール変更等・画像系は除外）
-    const skipBeforeAfterFields = new Set(['logoUrl', 'coverUrl'])
-    const skipDiff = userActionPatterns.some(p => p.test(text))
-        || (log.field != null && skipBeforeAfterFields.has(log.field))
-    if (!skipDiff) {
-        if (log.before != null && log.after != null) {
-            text += `（${humanizeValue(log.before)} → ${humanizeValue(log.after)}）`
-        } else if (log.before == null && log.after != null) {
-            text += `（なし → ${humanizeValue(log.after)}）`
-        } else if (log.before != null && log.after == null) {
-            text += `（${humanizeValue(log.before)} → なし）`
-        }
-    }
-    return text
 }
 
 // ---- Helper components ----

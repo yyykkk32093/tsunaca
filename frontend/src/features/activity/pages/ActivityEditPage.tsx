@@ -24,8 +24,9 @@ export function ActivityEditPage() {
             communityId: activity?.communityId ?? '',
             title: values.title,
             description: values.description || undefined,
-            defaultLocation: values.defaultLocation || undefined,
-            defaultAddress: values.defaultAddress || undefined,
+            defaultPlaceId: values.defaultPlaceId || null,
+            defaultLocationCustom: values.defaultLocationCustom || null,
+            isOnline: values.isOnline,
             defaultStartTime: values.defaultStartTime || undefined,
             defaultEndTime: values.defaultEndTime || undefined,
             recurrenceRule: values.recurrenceRule,
@@ -34,6 +35,7 @@ export function ActivityEditPage() {
             defaultVisitorFee: values.defaultVisitorFee,
             defaultCapacity: values.defaultCapacity,
             allowVisitorWaitlist: values.allowVisitorWaitlist,
+            visibility: values.visibility === 'public' ? 'PUBLIC' : 'PRIVATE',
             recurrenceGenerationMonths: values.recurrenceGenerationMonths,
         })
         // Schedule の更新（日付・定員・参加費・オンライン設定・会議URL）
@@ -78,8 +80,8 @@ export function ActivityEditPage() {
             initialValues={{
                 title: activity.title,
                 description: activity.description ?? '',
-                defaultLocation: activity.defaultLocation ?? '',
-                defaultAddress: activity.defaultAddress ?? '',
+                defaultPlaceId: activity.defaultPlaceId ?? '',
+                defaultLocationCustom: activity.defaultLocationCustom ?? '',
                 defaultStartTime: activity.defaultStartTime ?? '',
                 defaultEndTime: activity.defaultEndTime ?? '',
                 recurrenceRule: activity.recurrenceRule ?? null,
@@ -94,6 +96,7 @@ export function ActivityEditPage() {
                 defaultVisitorFee: activity.defaultVisitorFee ?? null,
                 defaultCapacity: activity.defaultCapacity ?? null,
                 allowVisitorWaitlist: activity.allowVisitorWaitlist ?? false,
+                visibility: activity.visibility === 'PUBLIC' ? 'public' : 'private',
             }}
             submitLabel="保存"
             onSubmit={handleSubmit}

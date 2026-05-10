@@ -8,10 +8,12 @@ import { useNavigate } from 'react-router-dom'
 
 interface AuthUser {
     userId: string
-    plan: 'FREE' | 'SUBSCRIBER' | 'LIFETIME'
+    plan: 'FREE' | 'LITE' | 'PRO' | 'LIFETIME'
     displayName: string | null
     email: string
     avatarUrl: string | null
+    /** Wave6 Phase 8-A: プラットフォーム（運営側）権限 */
+    systemRole: 'USER' | 'OPERATOR' | 'SUPER_ADMIN'
     features: Record<string, boolean>
     limits: Record<string, number>
 }
@@ -65,6 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     displayName: res.displayName,
                     email: res.email,
                     avatarUrl: res.avatarUrl,
+                    systemRole: res.systemRole,
                     features: res.features,
                     limits: res.limits,
                 }

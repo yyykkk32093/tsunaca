@@ -55,6 +55,26 @@ export const membershipController = {
         }
     },
 
+    async changeLevel(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id: communityId, userId: targetUserId } = req.params
+            const { level: newLevel } = req.body
+            const requesterId = req.user!.userId
+
+            const useCase = usecaseFactory.createUpdateMemberLevelUseCase()
+            await useCase.execute({
+                communityId,
+                targetUserId,
+                requesterId,
+                newLevel,
+            })
+
+            res.status(204).send()
+        } catch (err) {
+            next(err)
+        }
+    },
+
     async leave(req: Request, res: Response, next: NextFunction) {
         try {
             const { id: communityId } = req.params

@@ -1,10 +1,23 @@
 import { useToggleBookmark } from '@/features/community/hooks/useCommunityQueries'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar'
-import type { CommunityListItem } from '@/shared/types/api'
 import { Bookmark } from 'lucide-react'
 
+/**
+ * CommunityCard の表示に必要なフィールドだけを規定。
+ * W6-01: CommunityListItem と SubCommunityListItem の両方を受け付けるよう二ケース共通部分を抽出。
+ */
+export interface CommunityCardItem {
+    id: string
+    name: string
+    description: string | null
+    logoUrl: string | null
+    latestAnnouncementTitle: string | null
+    latestAnnouncementAt: string | null
+    bookmarked: boolean
+}
+
 interface CommunityCardProps {
-    community: CommunityListItem
+    community: CommunityCardItem
     onClick: () => void
 }
 

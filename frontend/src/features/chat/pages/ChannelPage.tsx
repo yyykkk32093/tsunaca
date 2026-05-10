@@ -1,7 +1,7 @@
 import { useAuth } from '@/app/providers/AuthProvider'
 import { ChatView } from '@/features/chat/components/ChatView'
-import { useLeaveDmChannel, useMyChannels } from '@/features/chat/hooks/useChatQueries'
-import { useCallback, useMemo } from 'react'
+import { useLeaveDmChannel, useMarkChannelRead, useMyChannels } from '@/features/chat/hooks/useChatQueries'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 /**
@@ -16,6 +16,15 @@ export function ChannelPage() {
     const currentUserId = user?.userId ?? ''
     const navigate = useNavigate()
     const leaveDm = useLeaveDmChannel()
+    const markRead = useMarkChannelRead()
+
+    // W5-25: チャンネル入室時に既読マーク
+    useEffect(() => {
+        if (channelId) {
+            markRead.mutate(channelId)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [channelId])
 
     // チャンネル名・タイプを useMyChannels キャッシュから解決
     const { data: channelsData } = useMyChannels()

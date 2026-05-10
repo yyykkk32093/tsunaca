@@ -53,6 +53,9 @@ export const communityApi = {
     changeMemberRole: (communityId: string, userId: string, data: ChangeMemberRoleRequest) =>
         http<void>(`/v1/communities/${communityId}/members/${userId}`, { method: 'PATCH', json: data }),
 
+    updateMemberLevel: (communityId: string, userId: string, level: number | null) =>
+        http<void>(`/v1/communities/${communityId}/members/${userId}/level`, { method: 'PATCH', json: { level } }),
+
     leave: (communityId: string, opts?: { cascadeToChildren?: boolean }) =>
         http<void>(`/v1/communities/${communityId}/members/me`, {
             method: 'DELETE',

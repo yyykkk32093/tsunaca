@@ -35,6 +35,9 @@ export async function cleanAllTables() {
     // Announcement (FK → Community)
     await prisma.announcement.deleteMany({})
 
+    // Payment (FK → Schedule, Participation)
+    await prisma.payment.deleteMany({})
+
     // Participation / WaitlistEntry + AuditLogs (FK → Schedule)
     await prisma.participationAuditLog.deleteMany({})
     await prisma.waitlistAuditLog.deleteMany({})

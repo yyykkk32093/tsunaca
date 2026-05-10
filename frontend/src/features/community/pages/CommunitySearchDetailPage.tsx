@@ -1,6 +1,8 @@
+import { AdBanner } from '@/features/ads/components/AdBanner'
 import { usePublicCommunityDetail } from '@/features/community/hooks/useCommunityQueries'
 import { Badge } from '@/shared/components/ui/badge'
 import { Button } from '@/shared/components/ui/button'
+import { useRedirectOnNotFound } from '@/shared/hooks/useRedirectOnNotFound'
 import {
     Calendar,
     Clock,
@@ -20,7 +22,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 export function CommunitySearchDetailPage() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
-    const { data: community, isLoading } = usePublicCommunityDetail(id ?? '')
+    const { data: community, isLoading, error: communityError } = usePublicCommunityDetail(id ?? '')
+    useRedirectOnNotFound(communityError)
 
     if (isLoading) {
         return (
@@ -165,6 +168,9 @@ export function CommunitySearchDetailPage() {
                     </Button>
                 </div>
             )}
+
+            {/* [5] コミュニティ検索詳細 — 参加リクエストボタン直下 */}
+            <AdBanner slotId="community-search-detail-below" />
         </div>
     )
 }

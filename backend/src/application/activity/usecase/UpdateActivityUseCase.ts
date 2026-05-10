@@ -4,7 +4,7 @@ import { Fee } from '@/domains/_sharedDomains/model/valueObject/Fee.js'
 import { UserId } from '@/domains/_sharedDomains/model/valueObject/UserId.js'
 import { ActivityDescription } from '@/domains/activity/domain/model/valueObject/ActivityDescription.js'
 import { ActivityTitle } from '@/domains/activity/domain/model/valueObject/ActivityTitle.js'
-import { DefaultLocation } from '@/domains/activity/domain/model/valueObject/DefaultLocation.js'
+import { ActivityVisibility } from '@/domains/activity/domain/model/valueObject/ActivityVisibility.js'
 import { TimeOfDay } from '@/domains/activity/domain/model/valueObject/TimeOfDay.js'
 import type { IActivityRepository } from '@/domains/activity/domain/repository/IActivityRepository.js'
 import type { IScheduleRepository } from '@/domains/activity/schedule/domain/repository/IScheduleRepository.js'
@@ -34,14 +34,16 @@ export class UpdateActivityUseCase {
         userId: string
         title?: string
         description?: string | null
-        defaultLocation?: string | null
-        defaultAddress?: string | null
+        defaultPlaceId?: string | null
+        defaultLocationCustom?: string | null
+        isOnline?: boolean
         defaultStartTime?: string | null
         defaultEndTime?: string | null
         defaultParticipationFee?: number | null
         defaultVisitorFee?: number | null
         defaultCapacity?: number | null
         allowVisitorWaitlist?: boolean
+        visibility?: 'PUBLIC' | 'PRIVATE'
         recurrenceRule?: string | null
         organizerUserId?: string | null
         recurrenceGenerationMonths?: number  // 繰返しスケジュール生成期間（月数）デフォルト2、最大12
@@ -66,10 +68,9 @@ export class UpdateActivityUseCase {
                 description: input.description !== undefined
                     ? ActivityDescription.createNullable(input.description)
                     : undefined,
-                defaultLocation: input.defaultLocation !== undefined
-                    ? DefaultLocation.createNullable(input.defaultLocation)
-                    : undefined,
-                defaultAddress: input.defaultAddress !== undefined ? (input.defaultAddress || null) : undefined,
+                defaultPlaceId: input.defaultPlaceId !== undefined ? input.defaultPlaceId : undefined,
+                defaultLocationCustom: input.defaultLocationCustom !== undefined ? input.defaultLocationCustom : undefined,
+                isOnline: input.isOnline !== undefined ? input.isOnline : undefined,
                 defaultStartTime: input.defaultStartTime !== undefined
                     ? TimeOfDay.createNullable(input.defaultStartTime)
                     : undefined,
@@ -87,6 +88,9 @@ export class UpdateActivityUseCase {
                     : undefined,
                 allowVisitorWaitlist: input.allowVisitorWaitlist !== undefined
                     ? input.allowVisitorWaitlist
+                    : undefined,
+                visibility: input.visibility !== undefined
+                    ? ActivityVisibility.create(input.visibility)
                     : undefined,
                 recurrenceRule: input.recurrenceRule !== undefined ? input.recurrenceRule : undefined,
                 organizerUserId: input.organizerUserId !== undefined

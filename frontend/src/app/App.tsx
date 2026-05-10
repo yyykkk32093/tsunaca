@@ -33,7 +33,20 @@ import { NotificationListPage } from '@/features/notification/pages/Notification
 import { RefundHistoryPage } from '@/features/participation/pages/RefundHistoryPage'
 import { RefundManagementPage } from '@/features/participation/pages/RefundManagementPage'
 
+import { AdminHelpFeedbackPage } from '@/features/admin/pages/AdminHelpFeedbackPage'
+import { AdminHomePage } from '@/features/admin/pages/AdminHomePage'
+import { AdminInquiriesPage } from '@/features/admin/pages/AdminInquiriesPage'
+import { AdminInquiryDetailPage } from '@/features/admin/pages/AdminInquiryDetailPage'
+import { HelpArticlePage } from '@/features/help/pages/HelpArticlePage'
+import { HelpCategoryPage } from '@/features/help/pages/HelpCategoryPage'
+import { HelpTopPage } from '@/features/help/pages/HelpTopPage'
+import { AnonymousContactPage } from '@/features/inquiry/pages/AnonymousContactPage'
+import { ContactPage } from '@/features/inquiry/pages/ContactPage'
+import { MyInquiriesPage } from '@/features/inquiry/pages/MyInquiriesPage'
+import { MyInquiryDetailPage } from '@/features/inquiry/pages/MyInquiryDetailPage'
+import { MatchingPage } from '@/features/matching/pages/MatchingPage'
 import { MyPage } from '@/features/user/pages/MyPage'
+import { AdminProtectedRoute } from '@/shared/components/AdminProtectedRoute'
 import { AppLayout } from '@/shared/components/AppLayout'
 import { ProtectedRoute } from '@/shared/components/ProtectedRoute'
 import { Toaster } from '@/shared/components/ui/sonner'
@@ -63,6 +76,28 @@ const router = createBrowserRouter([
                 path: '/signup',
                 element: <SignupPage />,
                 handle: { title: '新規登録', showBack: true } satisfies RouteHandle,
+            },
+            // Wave6 Phase 8-B: 匿名（未ログイン）からの問い合わせ
+            {
+                path: '/contact/anonymous',
+                element: <AnonymousContactPage />,
+                handle: { title: 'お問い合わせ', showBack: true } satisfies RouteHandle,
+            },
+            // Wave6 Phase 7: ヘルプ（公開ルート、画面側で audience 判定）
+            {
+                path: '/help',
+                element: <HelpTopPage />,
+                handle: { title: 'ヘルプ', showBack: true } satisfies RouteHandle,
+            },
+            {
+                path: '/help/:categorySlug',
+                element: <HelpCategoryPage />,
+                handle: { title: 'ヘルプ', showBack: true } satisfies RouteHandle,
+            },
+            {
+                path: '/help/:categorySlug/:articleSlug',
+                element: <HelpArticlePage />,
+                handle: { title: 'ヘルプ', showBack: true } satisfies RouteHandle,
             },
             {
                 path: '/auth/callback/:provider',
@@ -141,6 +176,11 @@ const router = createBrowserRouter([
                         element: <ActivityEditPage />,
                         handle: { title: 'アクティビティ更新', showBack: true } satisfies RouteHandle,
                     },
+                    {
+                        path: '/communities/:communityId/schedules/:scheduleId/matching',
+                        element: <MatchingPage />,
+                        handle: { title: '組み合わせ', showBack: true } satisfies RouteHandle,
+                    },
 
                     // Activity（トップレベル — クロスコミュニティビュー）
                     {
@@ -213,6 +253,23 @@ const router = createBrowserRouter([
                         handle: { title: 'マイページ', showBack: true } satisfies RouteHandle,
                     },
 
+                    // Wave6 Phase 8-B: 問い合わせ（認証ユーザー側）
+                    {
+                        path: '/contact',
+                        element: <ContactPage />,
+                        handle: { title: 'お問い合わせ', showBack: true } satisfies RouteHandle,
+                    },
+                    {
+                        path: '/mypage/inquiries',
+                        element: <MyInquiriesPage />,
+                        handle: { title: '問い合わせ履歴', showBack: true } satisfies RouteHandle,
+                    },
+                    {
+                        path: '/mypage/inquiries/:id',
+                        element: <MyInquiryDetailPage />,
+                        handle: { title: '問い合わせ詳細', showBack: true } satisfies RouteHandle,
+                    },
+
                     // Invite Accept (UBL-11)
                     {
                         path: '/invites/:token/accept',
@@ -255,6 +312,35 @@ const router = createBrowserRouter([
                         path: '/paywall',
                         element: <PaywallPage />,
                         handle: { title: 'プラン', showBack: true } satisfies RouteHandle,
+                    },
+                ],
+            },
+
+            // ── 運営管理画面（Wave6 Phase 8-A: SystemAdmin ロール基盤） ──
+            {
+                element: <AdminProtectedRoute />,
+                children: [
+                    {
+                        path: '/admin',
+                        element: <AdminHomePage />,
+                        handle: { title: '運営管理', showBack: true } satisfies RouteHandle,
+                    },
+                    // Wave6 Phase 8-C: 運営側 問い合わせ管理
+                    {
+                        path: '/admin/inquiries',
+                        element: <AdminInquiriesPage />,
+                        handle: { title: '問い合わせ管理', showBack: true } satisfies RouteHandle,
+                    },
+                    {
+                        path: '/admin/inquiries/:id',
+                        element: <AdminInquiryDetailPage />,
+                        handle: { title: '問い合わせ詳細', showBack: true } satisfies RouteHandle,
+                    },
+                    // Wave6 Phase 9b-04: ヘルプフィードバック集計
+                    {
+                        path: '/admin/help-feedback',
+                        element: <AdminHelpFeedbackPage />,
+                        handle: { title: 'ヘルプフィードバック集計', showBack: true } satisfies RouteHandle,
                     },
                 ],
             },

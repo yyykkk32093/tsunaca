@@ -62,7 +62,7 @@ describeE2E('Activity E2E', () => {
             .send({
                 title: 'バドミントン練習',
                 description: '毎週の練習',
-                defaultLocation: '○○体育館',
+                defaultLocationCustom: '○○体育館',
                 defaultStartTime: '10:00',
                 defaultEndTime: '12:00',
             })
@@ -77,7 +77,7 @@ describeE2E('Activity E2E', () => {
         expect(activity).not.toBeNull()
         expect(activity!.title).toBe('バドミントン練習')
         expect(activity!.communityId).toBe(communityId)
-        expect(activity!.defaultLocation).toBe('○○体育館')
+        expect(activity!.defaultLocationCustom).toBe('○○体育館')
         expect(activity!.defaultStartTime).toBe('10:00')
         expect(activity!.defaultEndTime).toBe('12:00')
         expect(activity!.deletedAt).toBeNull()
@@ -126,7 +126,7 @@ describeE2E('Activity E2E', () => {
         const updateRes = await request(app)
             .patch(`/v1/activities/${createRes.body.activityId}`)
             .set('Authorization', bearerToken(ownerId, ownerEmail))
-            .send({ title: '更新後', defaultLocation: '△△公園' })
+            .send({ title: '更新後', defaultLocationCustom: '△△公園' })
 
         expect(updateRes.status).toBe(204)
 
@@ -134,7 +134,7 @@ describeE2E('Activity E2E', () => {
             where: { id: createRes.body.activityId },
         })
         expect(after!.title).toBe('更新後')
-        expect(after!.defaultLocation).toBe('△△公園')
+        expect(after!.defaultLocationCustom).toBe('△△公園')
     })
 
     it('DELETE /v1/activities/:id → Activity論理削除', async () => {

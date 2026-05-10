@@ -33,9 +33,10 @@ export const scheduleController = {
     async list(req: Request, res: Response, next: NextFunction) {
         try {
             const { activityId } = req.params
+            const viewerUserId = req.user?.userId ?? null
 
             const useCase = usecaseFactory.createListSchedulesUseCase()
-            const result = await useCase.execute({ activityId })
+            const result = await useCase.execute({ activityId, viewerUserId })
 
             res.status(200).json(result)
         } catch (err) {
@@ -91,6 +92,20 @@ export const scheduleController = {
             const userId = req.user!.userId
 
             const useCase = usecaseFactory.createCancelScheduleUseCase()
+            await useCase.execute({ scheduleId: id, userId })
+
+            res.status(204).send()
+        } catch (err) {
+            next(err)
+        }
+    },
+
+    async restore(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = req.params
+            const userId = req.user!.userId
+
+            const useCase = usecaseFactory.createRestoreScheduleUseCase()
             await useCase.execute({ scheduleId: id, userId })
 
             res.status(204).send()

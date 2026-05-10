@@ -72,14 +72,16 @@ model Activity {
   communityId             String
   title                   String
   description             String?
-  defaultLocation         String?
-  defaultAddress          String? // 開催場所住所（任意）— Googleマップリンク用
+  defaultPlaceId          String? // 候補マスタ参照（Place）。defaultLocationCustom と XOR
+  defaultLocationCustom   String? // 自由入力（候補不一致時）。defaultPlaceId と XOR
+  isOnline                Boolean   @default(false) // オンライン開催フラグ。true 時は会場情報なし
   defaultStartTime        String? // "HH:mm" format
   defaultEndTime          String? // "HH:mm" format
   defaultParticipationFee Int? // デフォルト参加費（繰り返し生成時に引き継ぎ）
   defaultVisitorFee       Int? // デフォルトビジター費（繰り返し生成時に引き継ぎ）
   defaultCapacity         Int? // デフォルト定員（繰り返し生成時に引き継ぎ）
   allowVisitorWaitlist    Boolean   @default(false) // ビジターのキャンセル待ち参加を許可
+  visibility              String    @default("PRIVATE") // 'PUBLIC' | 'PRIVATE' — Wave6 W6-04: アクティビティ公開範囲
   recurrenceRule          String? // null in Phase 1
   organizerUserId         String? // 幹事ユーザーID（null = 未定）
   createdBy               String
@@ -89,6 +91,7 @@ model Activity {
   updatedAt DateTime @updatedAt
 
   community     Community      @relation(fields: [communityId], references: [id])
+  defaultPlace  Place?         @relation(fields: [defaultPlaceId], references: [id])
   schedules     Schedule[]
   chatChannel   ChatChannel?
   announcements Announcement[] // Phase3 #4: アクティビティ由来のお知らせ
@@ -96,6 +99,34 @@ model Activity {
   @@index([communityId])
   @@index([createdBy])
   @@index([organizerUserId])
+  @@index([defaultPlaceId])
+}
+
+// Wave6 Phase6 W6-07: 開催場所マスタ（OSM由来）
+// - source/sourceId で OSM の安定IDを保持し再取得時のupsertキーとする
+// - normalizedName/normalizedAddress に pg_trgm GIN インデックスを付与（migration内 raw SQL）
+// - usageCount は Activity 保存時にインクリメント
+model Place {
+  id                String  @id @default(uuid())
+  name              String  @db.VarChar(200)
+  address           String  @db.VarChar(500)
+  lat               Float
+  lng               Float
+  normalizedName    String  @db.VarChar(200) // 検索用正規化名（小文字・記号除去）
+  normalizedAddress String  @db.VarChar(500) // 検索用正規化住所
+  category          String? @db.VarChar(50) // OSM由来カテゴリ（sports_centre / community_centre 等）
+  source            String  @db.VarChar(20) // 'osm' 等
+  sourceId          String  @db.VarChar(100) // 'osm:node:123456' / 'osm:way:...' 形式の安定ID
+  usageCount        Int     @default(0)
+  isActive          Boolean @default(true) // false = 最新スナップショットから消えた等で論理削除
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activities Activity[]
+
+  @@unique([source, sourceId])
+  @@index([isActive, usageCount(sort: Desc)])
 }
 
 model Schedule {
@@ -112,6 +143,7 @@ model Schedule {
   visitorFee       Int? // ビジター参加費（null = 通常参加費と同額）
   isOnline         Boolean   @default(false)
   meetingUrl       String? // オンライン時の会議URL
+  visibility       String? // null = Activity を継承 / 'PUBLIC' | 'PRIVATE' — Wave6 W6-04: スケジュール個別の公開範囲オーバーライド
   deletedAt        DateTime?
 
   createdAt DateTime @default(now())
@@ -122,19 +154,21 @@ model Schedule {
   waitlistEntries        WaitlistEntry[]
   participationAuditLogs ParticipationAuditLog[]
   payments               Payment[]
+  matchingResult         MatchingResult?
 
   @@index([activityId])
   @@index([date])
 }
 
 model Participation {
-  id          String   @id @default(uuid())
-  scheduleId  String
-  userId      String? // 登録済みユーザーの場合はユーザーID。未登録ビジターの場合はnull
-  isVisitor   Boolean  @default(false)
-  visitorName String?  @db.VarChar(50) // 未登録ビジターの表示名（isVisitor=true & userId=null 時に必須）
-  addedBy     String? // ビジター追加者のユーザーID
-  respondedAt DateTime @default(now())
+  id           String   @id @default(uuid())
+  scheduleId   String
+  userId       String? // 登録済みユーザーの場合はユーザーID。未登録ビジターの場合はnull
+  isVisitor    Boolean  @default(false)
+  visitorName  String?  @db.VarChar(50) // 未登録ビジターの表示名（isVisitor=true & userId=null 時に必須）
+  visitorLevel Int? // ビジターの競技レベル（0-8）。null の場合はコミュニティ平均を適用
+  addedBy      String? // ビジター追加者のユーザーID
+  respondedAt  DateTime @default(now())
 
   schedule Schedule  @relation(fields: [scheduleId], references: [id])
   payments Payment[] // Payment との1:N関連（通常1:1だが返金等で複数の可能性）
@@ -192,11 +226,17 @@ model User {
   id                  String    @id @default(uuid())
   displayName         String?
   plan                String    @default("FREE")
+  /// プラットフォーム（運営側）権限。テナント内の CommunityMembership.role とは別概念。
+  /// 'USER' | 'OPERATOR' | 'SUPER_ADMIN'
+  /// USER: 一般利用者 / OPERATOR: 運営オペレーター（問い合わせ対応・ヘルプ管理）/ SUPER_ADMIN: 全権
+  systemRole          String    @default("USER") @map("system_role")
   email               String?   @unique
   phone               String?
   avatarUrl           String?
   biography           String?
   notificationSetting Json
+  /// Wave6 Phase 9b-05: 表示言語（'ja' | 'en'）。null = 未設定（クライアントが localStorage / navigator.language で判定）
+  locale              String?
   deletedAt           DateTime?
 
   createdAt DateTime @default(now())
@@ -220,6 +260,18 @@ model User {
 
   // Wave4: 退会記録
   withdrawal UserWithdrawal?
+
+  // W5-25: チャンネル既読状態
+  channelReadStates ChannelReadState[]
+
+  // Wave6 Phase 8-B: 問い合わせ（認証ユーザー側）
+  inquiries Inquiry[] @relation("UserInquiries")
+
+  // Wave6 Phase 9b-16: 問い合わせ担当（運営側）
+  assignedInquiries Inquiry[] @relation("InquiryAssignee")
+
+  // Wave6 Phase10: 組み合わせ結果
+  matchingResults MatchingResult[]
 }
 
 // ============================================================
@@ -378,6 +430,7 @@ model CommunityMembership {
   communityId String
   userId      String
   role        String    @default("MEMBER") // 'OWNER' | 'ADMIN' | 'MEMBER'
+  level       Int? // メンバーのコミュニティ内レベル（0-8）
   joinedAt    DateTime  @default(now())
   leftAt      DateTime?
 
@@ -584,7 +637,7 @@ model AlbumPhoto {
 
 model UserFeatureRestriction {
   id      String  @id @default(uuid())
-  plan    String // 'FREE' | 'SUBSCRIBER' | 'LIFETIME'
+  plan    String // 'FREE' | 'LITE' | 'PRO' | 'LIFETIME'
   feature String // Feature enum の値
   enabled Boolean @default(false)
 
@@ -597,7 +650,7 @@ model UserFeatureRestriction {
 
 model UserLimitRestriction {
   id       String @id @default(uuid())
-  plan     String // 'FREE' | 'SUBSCRIBER' | 'LIFETIME'
+  plan     String // 'FREE' | 'LITE' | 'PRO' | 'LIFETIME'
   limitKey String // 'maxJoinCommunities' | 'maxCustomStamps' etc.
   value    Int // -1 = 無制限
 
@@ -734,10 +787,11 @@ model ChatChannel {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  community      Community?      @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  activity       Activity?       @relation(fields: [activityId], references: [id], onDelete: Cascade)
-  messages       Message[]
-  dmParticipants DMParticipant[]
+  community        Community?         @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  activity         Activity?          @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  messages         Message[]
+  dmParticipants   DMParticipant[]
+  channelReadState ChannelReadState[]
 
   @@index([type])
 }
@@ -875,6 +929,40 @@ model CategoryMaster {
   createdAt DateTime @default(now())
 
   communityCategories CommunityCategory[]
+  matchFormats        CategoryMatchFormat[]
+}
+
+model CategoryMatchFormat {
+  id              String   @id @default(uuid())
+  categoryId      String
+  name            String
+  playersPerGroup Int // 1組あたりの人数（シングルス=1, ダブルス=2）
+  groupsPerCourt  Int      @default(2) // 1コートの同時対戦組数（通常2）
+  sortOrder       Int      @default(0)
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  category CategoryMaster @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, name])
+  @@index([categoryId, sortOrder])
+}
+
+model MatchingResult {
+  id         String   @id @default(uuid())
+  scheduleId String   @unique
+  mode       String // RANDOM | MIXED_LEVEL | SAME_LEVEL
+  params     Json
+  rounds     Json
+  createdBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [createdBy], references: [id])
+
+  @@index([createdBy])
 }
 
 model ParticipationLevelMaster {
@@ -1072,4 +1160,165 @@ model Expense {
   @@index([communityId])
   @@index([categoryId])
   @@index([createdBy])
+}
+
+// ============================================================
+// W5-28: PlanMaster（プランマスタ）
+// ============================================================
+
+model PlanMaster {
+  id                  String    @id // 'FREE' | 'LITE' | 'PRO' | 'LIFETIME'
+  displayName         String // UI表示名
+  description         String?
+  monthlyPrice        Int? // 月額（円）。null = 無料 or 買い切り
+  oneTimePrice        Int? // 買い切り価格（円）。LIFETIME のみ
+  revenuecatProductId String? // RevenueCat の product_id
+  sortOrder           Int       @default(0) // 表示順
+  availableFrom       DateTime? // 販売開始日（null = 制限なし）
+  availableTo         DateTime? // 販売終了日（null = 制限なし）
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// W5-25: ChannelReadState（チャンネル既読状態）
+// ============================================================
+
+model ChannelReadState {
+  id         String   @id @default(uuid())
+  channelId  String
+  userId     String
+  lastReadAt DateTime @default(now())
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([userId])
+}
+
+// ============================================================
+// Wave6 Phase 8-B: Inquiry（問い合わせ）+ Phase 7 / 9b-01: HelpFeedback
+// 詳細設計: projects/00_requirements/202603_07_bugfix-and-refactoring_wave6/phase8-progress.md
+// ============================================================
+
+/// 問い合わせカテゴリマスタ（Phase 7 のヘルプカテゴリと relatedHelpCategorySlug で紐付け）
+model InquiryCategory {
+  id                      String  @id @default(uuid())
+  /// URL/参照用の一意キー（例: 'login_trouble', 'billing', 'general'）
+  slug                    String  @unique
+  /// i18n ラベル: { "ja": "ログイン・登録の不具合", "en": "Login / Sign-up issue" }
+  labelI18n               Json
+  /// Phase 7 ヘルプカテゴリの slug 参照（紐付けがない場合は null）
+  relatedHelpCategorySlug String?
+  sortOrder               Int     @default(0)
+  isActive                Boolean @default(true)
+  /// 匿名ルート（/contact/anonymous）専用カテゴリかどうか
+  /// true の場合、認証ルート (/contact) のカテゴリ選択肢に含めない
+  isAnonymousOnly         Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inquiries Inquiry[]
+
+  @@index([isActive, sortOrder])
+}
+
+/// 問い合わせスレッド本体
+model Inquiry {
+  id             String    @id @default(uuid())
+  /// 認証ユーザー問い合わせの場合に設定。匿名問い合わせの場合 null
+  userId         String?
+  /// 匿名問い合わせ時の連絡先メール（運営返信先）。認証ユーザーの場合 null
+  contactEmail   String?
+  categoryId     String
+  title          String    @db.VarChar(200)
+  /// OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  status         String    @default("OPEN")
+  /// マイページに表示される最終更新時刻（運営返信／ユーザー追記で更新）
+  lastActivityAt DateTime  @default(now())
+  /// RESOLVED 遷移時刻（180日経過で添付削除ジョブの判定に使用）
+  resolvedAt     DateTime?
+  /// Wave6 Phase 9b-16: 担当オペレーター（SystemAdmin ユーザー）。null = 未割当
+  assigneeUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User?            @relation("UserInquiries", fields: [userId], references: [id])
+  category InquiryCategory  @relation(fields: [categoryId], references: [id])
+  assignee User?            @relation("InquiryAssignee", fields: [assigneeUserId], references: [id])
+  messages InquiryMessage[]
+
+  @@index([userId, lastActivityAt(sort: Desc)])
+  @@index([status, lastActivityAt(sort: Desc)])
+  @@index([categoryId])
+  @@index([assigneeUserId, status])
+}
+
+/// 問い合わせスレッド内の個別メッセージ（初回送信＋運営返信＋ユーザー追記）
+model InquiryMessage {
+  id           String   @id @default(uuid())
+  inquiryId    String
+  /// 'USER' | 'OPERATOR' — 投稿者種別
+  authorType   String
+  /// authorType=OPERATOR の場合の運営担当者ユーザー ID。匿名や USER 投稿は null
+  authorUserId String?
+  body         String   @db.Text
+  createdAt    DateTime @default(now())
+
+  inquiry     Inquiry             @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  attachments InquiryAttachment[]
+
+  @@index([inquiryId, createdAt])
+}
+
+/// 問い合わせメッセージへの添付（画像/動画/PDF/テキスト）
+model InquiryAttachment {
+  id         String    @id @default(uuid())
+  messageId  String
+  storageKey String    @unique
+  fileName   String    @db.VarChar(255)
+  mimeType   String    @db.VarChar(100)
+  sizeBytes  Int
+  /// 'PENDING' | 'CLEAN' | 'INFECTED' | 'ERROR'
+  scanStatus String    @default("PENDING")
+  scannedAt  DateTime?
+  /// RESOLVED 後の保持期間ジョブで S3 から削除されたかどうか（メタは残す）
+  isPurged   Boolean   @default(false)
+  purgedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  message InquiryMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([scanStatus])
+  @@index([isPurged])
+}
+
+/// Phase 7 / 9b-01: ヘルプ記事フィードバック（役立った/役立たなかった）
+/// 認証ユーザーは [userId, articleSlug] で一意（再投票は upsert で上書き）。
+/// 匿名（userId=null）は upsert できないため、複数行が積まれる（IP rate-limit で抑制）。
+model HelpFeedback {
+  id           String  @id @default(uuid())
+  /// ヘルプ記事のslug
+  articleSlug  String  @db.VarChar(200)
+  /// カテゴリslug（集計時のドメイン軸グルーピング用、9b-04 で使用）
+  categorySlug String  @db.VarChar(100)
+  /// 認証ユーザーの場合のみ。匿名フィードバックは null
+  userId       String?
+  /// true=役立った / false=役立たなかった
+  helpful      Boolean
+  /// 任意フリーテキスト（最大500字）
+  comment      String? @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, articleSlug])
+  @@index([articleSlug, createdAt])
+  @@index([categorySlug, createdAt])
 }

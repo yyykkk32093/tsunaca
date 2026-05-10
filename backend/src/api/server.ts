@@ -6,7 +6,9 @@ import { RealtimeEmitterBootstrap } from '@/_bootstrap/RealtimeEmitterBootstrap.
 import { TransactionalDomainEventBootstrap } from '@/_bootstrap/TransactionalDomainEventBootstrap.js';
 import { AppSecretsLoader } from '@/_sharedTech/config/AppSecretsLoader.js';
 import { loadEnv } from '@/_sharedTech/config/loadEnv.js';
+import { prisma } from '@/_sharedTech/db/client.js';
 import { errorHandler } from '@/api/middleware/errorHandler.js';
+import { PlaceMemoryCache } from '@/domains/place/infrastructure/cache/PlaceMemoryCache.js';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
@@ -138,7 +140,12 @@ try {
     await loadRoutes(apiRoot);
 
     // ============================================================
-    // 🔔  EventSubscriber 登録
+    // �️  PlaceMemoryCache 起動時ロード（失敗時はDBフォールバック）
+    // ============================================================
+    await PlaceMemoryCache.get().initialize(prisma);
+
+    // ============================================================
+    // �🔔  EventSubscriber 登録
     // ===========================================================
     ApplicationEventBootstrap.bootstrap()
     DomainEventBootstrap.bootstrap()

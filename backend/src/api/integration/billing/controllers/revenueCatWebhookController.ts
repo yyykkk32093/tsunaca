@@ -16,7 +16,10 @@ export const revenueCatWebhookController = {
             const { RevenueCatBillingService } = await import(
                 '@/integration/billing/RevenueCatBillingService.js'
             )
-            const billingService = new RevenueCatBillingService()
+            const { StripeServiceImpl } = await import(
+                '@/integration/stripe/StripeServiceImpl.js'
+            )
+            const billingService = new RevenueCatBillingService(new StripeServiceImpl())
 
             const authHeader = req.headers.authorization ?? ''
             if (!billingService.verifyWebhookAuth(authHeader)) {

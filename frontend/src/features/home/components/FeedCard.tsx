@@ -1,3 +1,5 @@
+import { useAuth } from '@/app/providers/AuthProvider'
+import { useDeleteAnnouncement } from '@/features/announcement/hooks/useAnnouncementQueries'
 import { useToggleAnnouncementBookmark, useToggleAnnouncementLike } from '@/features/announcement/hooks/useAnnouncementSocialQueries'
 import { useMyRole } from '@/features/community/hooks/useCommunityQueries'
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar'
@@ -24,7 +26,10 @@ export function FeedCard({ item }: FeedCardProps) {
 
     const likeMutation = useToggleAnnouncementLike()
     const bookmarkMutation = useToggleAnnouncementBookmark()
+    const deleteMutation = useDeleteAnnouncement(item.communityId)
+    const { user } = useAuth()
     const { isAdminOrAbove } = useMyRole(item.communityId)
+    const isAuthor = !!user && user.userId === item.authorId
 
     const handleToggleBookmark = () => {
         bookmarkMutation.mutate(item.id)
@@ -34,6 +39,17 @@ export function FeedCard({ item }: FeedCardProps) {
     const handleEdit = () => {
         navigate(`/communities/${item.communityId}/announcements/new?edit=${item.id}`)
         setMenuOpen(false)
+    }
+
+    const handleDelete = () => {
+        setMenuOpen(false)
+        if (!confirm('このお知らせを削除しますか？')) return
+        deleteMutation.mutate(item.id, {
+            onError: (err: unknown) => {
+                const message = err instanceof Error ? err.message : '削除に失敗しました'
+                alert(message)
+            },
+        })
     }
 
     /** #6: お知らせ詳細画面へ遷移 */
@@ -120,6 +136,16 @@ export function FeedCard({ item }: FeedCardProps) {
                                         className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
                                     >
                                         編集する
+                                    </button>
+                                )}
+                                {isAuthor && (
+                                    <button
+                                        type="button"
+                                        onClick={handleDelete}
+                                        disabled={deleteMutation.isPending}
+                                        className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                    >
+                                        {deleteMutation.isPending ? '削除中…' : '削除する'}
                                     </button>
                                 )}
                             </div>

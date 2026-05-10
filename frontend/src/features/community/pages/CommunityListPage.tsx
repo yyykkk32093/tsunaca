@@ -1,8 +1,9 @@
+import { AdBanner } from '@/features/ads/components/AdBanner'
 import { CommunityCard } from '@/features/community/components/CommunityCard'
 import { useCommunities, useSubCommunities } from '@/features/community/hooks/useCommunityQueries'
 import { FloatingActionButton } from '@/shared/components/FloatingActionButton'
 import type { CommunityListItem } from '@/shared/types/api'
-import { Bookmark, ChevronDown, ChevronRight, Plus, Search, Users } from 'lucide-react'
+import { Bookmark, ChevronDown, ChevronRight, Plus, Search } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -50,6 +51,9 @@ export function CommunityListPage() {
                     </button>
                 </div>
             )}
+
+            {/* [3] コミュニティ一覧 — ブックマークボタン直下 */}
+            <AdBanner slotId="community-list-bookmark-below" />
 
             {/* List */}
             {isLoading ? (
@@ -144,36 +148,14 @@ function ParentCommunityRow({
             {expanded && (
                 <div className="ml-7 border-l-2 border-gray-100">
                     {apiChildren.length > 0 ? (
-                        apiChildren.map((child) => {
-                            // ローカルに存在する子は CommunityCard で表示（ブックマーク等含む）
-                            const localChild = localChildren.find(lc => lc.id === child.id)
-                            return localChild ? (
-                                <CommunityCard
-                                    key={child.id}
-                                    community={localChild}
-                                    onClick={() => onNavigate(child.id)}
-                                />
-                            ) : (
-                                <button
-                                    key={child.id}
-                                    type="button"
-                                    onClick={() => onNavigate(child.id)}
-                                    className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left border-b border-gray-100 last:border-b-0"
-                                >
-                                    <div className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
-                                        {child.logoUrl ? (
-                                            <img src={child.logoUrl} alt={child.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <Users size={14} className="text-gray-300" />
-                                        )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-gray-700 truncate">{child.name}</p>
-                                        <p className="text-xs text-gray-400">{child.memberCount}人</p>
-                                    </div>
-                                </button>
-                            )
-                        })
+                        // W6-01: API から取得したサブコミュニティは全て CommunityCard で表示（ブックマークも可能）
+                        apiChildren.map((child) => (
+                            <CommunityCard
+                                key={child.id}
+                                community={child}
+                                onClick={() => onNavigate(child.id)}
+                            />
+                        ))
                     ) : localChildren.length > 0 ? (
                         localChildren.map((child) => (
                             <CommunityCard

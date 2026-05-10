@@ -1,3 +1,5 @@
+import { isAdFeedMarker, useAdFeed } from '@/features/ads'
+import { AdFeedItem } from '@/features/ads/components/AdFeedItem'
 import type { NotificationCategory } from '@/features/notification/api/notificationApi'
 import {
     useMarkAllNotificationsAsRead,
@@ -23,6 +25,7 @@ export function NotificationListPage() {
     const markAllAsRead = useMarkAllNotificationsAsRead()
 
     const notifications = data?.notifications ?? []
+    const feedItems = useAdFeed('notification-feed', notifications)
 
     return (
         <div className="max-w-2xl mx-auto p-4">
@@ -67,7 +70,11 @@ export function NotificationListPage() {
                 <p className="text-center text-sm text-gray-500 py-8">通知はありません</p>
             ) : (
                 <ul className="space-y-2">
-                    {notifications.map((n) => {
+                    {feedItems.map((item, i) => {
+                        if (isAdFeedMarker(item)) {
+                            return <AdFeedItem key={`ad-${i}`} slotId={item.slotId} />
+                        }
+                        const n = item
                         const link = getNotificationLink(n)
                         const meta = getMetaSummary(n)
                         const card = (
@@ -259,6 +266,8 @@ function NotificationTypeChip({ type }: { type: string }) {
         PAYMENT_REMINDER: { label: '支払い', color: 'bg-orange-100 text-orange-700' },
         PAID_CANCELLATION: { label: '返金', color: 'bg-pink-100 text-pink-700' },
         SAME_DAY_CANCELLATION: { label: '当日キャンセル', color: 'bg-rose-100 text-rose-700' },
+        // 問い合わせ系
+        INQUIRY_REPLY: { label: '問い合わせ返信', color: 'bg-amber-100 text-amber-700' },
     }
     const c = config[type] ?? { label: type, color: 'bg-gray-100 text-gray-600' }
 

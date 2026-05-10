@@ -5,14 +5,14 @@
  * 現在は RevenueCat をプライマリとして使用する。
  */
 
-export type PlanType = 'FREE' | 'SUBSCRIBER' | 'LIFETIME'
+export type PlanType = 'FREE' | 'LITE' | 'PRO' | 'LIFETIME'
 
 export interface SubscriptionInfo {
     /** RevenueCat の app_user_id（= 当システムの userId） */
     appUserId: string
     /** 現在のプラン */
     plan: PlanType
-    /** サブスク有効期限（SUBSCRIBER のみ。LIFETIME / FREE は null） */
+    /** サブスク有効期限（PRO のみ。LIFETIME / FREE / LITE は null） */
     expiresAt: Date | null
     /** アクティブかどうか */
     isActive: boolean
@@ -33,4 +33,9 @@ export interface IBillingService {
      * Webhook の認証トークンを検証
      */
     verifyWebhookAuth(authHeader: string): boolean
+
+    /**
+     * ユーザーのサブスクリプションを Stripe 経由でキャンセル
+     */
+    cancelSubscription(appUserId: string): Promise<void>
 }

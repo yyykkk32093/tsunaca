@@ -1,5 +1,7 @@
 import { useAuth } from '@/app/providers/AuthProvider'
 import { activityApi } from '@/features/activity/api/activityApi'
+import { OsmAttributionInfo } from '@/features/activity/components/OsmAttributionInfo'
+import { PlaceCombobox } from '@/features/activity/components/PlaceCombobox'
 import { useActivities } from '@/features/activity/hooks/useActivityQueries'
 import { useMembers } from '@/features/community/hooks/useMemberQueries'
 import { Button } from '@/shared/components/ui/button'
@@ -135,8 +137,8 @@ const feeStringSchema = z.string().refine(
 const activityFormSchema = z.object({
     title: z.string().min(1, 'アクティビティ名を入力してください').max(100, 'アクティビティ名は100文字以内で入力してください'),
     description: z.string().max(500, '説明は500文字以内で入力してください'),
-    defaultLocation: z.string(),
-    defaultAddress: z.string(),
+    defaultLocationCustom: z.string(),
+    defaultPlaceId: z.string(),
     date: z.string().min(1, '開催日を入力してください'),
     defaultStartTime: z.string(),
     defaultEndTime: z.string(),
@@ -182,8 +184,8 @@ type ActivityFormSchema = z.infer<typeof activityFormSchema>
 
 export interface ActivityFormValues {
     title: string
-    defaultLocation: string
-    defaultAddress: string
+    defaultLocationCustom: string
+    defaultPlaceId: string
     date: string
     organizerUserId: string
     repeat: string
@@ -254,8 +256,8 @@ export function ActivityForm({
         defaultValues: {
             title: initialValues?.title ?? '',
             description: initialValues?.description ?? '',
-            defaultLocation: initialValues?.defaultLocation ?? '',
-            defaultAddress: initialValues?.defaultAddress ?? '',
+            defaultLocationCustom: initialValues?.defaultLocationCustom ?? '',
+            defaultPlaceId: initialValues?.defaultPlaceId ?? '',
             date: initialValues?.date ?? '',
             defaultStartTime: initialValues?.defaultStartTime ?? '',
             defaultEndTime: initialValues?.defaultEndTime ?? '',
@@ -310,6 +312,9 @@ export function ActivityForm({
     // --- 履歴から入力 ---
     const [showHistoryDialog, setShowHistoryDialog] = useState(false)
     const [historyLoading, setHistoryLoading] = useState<string | null>(null)
+    // W6-06: 履歴モーダル内で「開備日」を入力させ、選択時にフォーム本体の date へ反映する。
+    // 作成画面ルールと整合させるため過去日付は不可。
+    const [historyDate, setHistoryDate] = useState<string>('')
     const { data: activitiesData } = useActivities(communityId)
     const pastActivities = useMemo(() => (activitiesData?.activities ?? []).slice(0, 10), [activitiesData])
 
@@ -319,8 +324,8 @@ export function ActivityForm({
             const detail = await activityApi.findById(activityId)
             setValue('title', detail.title)
             setValue('description', detail.description ?? '')
-            setValue('defaultLocation', detail.defaultLocation ?? '')
-            setValue('defaultAddress', detail.defaultAddress ?? '')
+            setValue('defaultLocationCustom', detail.defaultLocationCustom ?? '')
+            setValue('defaultPlaceId', detail.defaultPlaceId ?? '')
             setValue('defaultStartTime', detail.defaultStartTime ?? '')
             setValue('defaultEndTime', detail.defaultEndTime ?? '')
             setValue('organizerUserId', detail.organizerUserId ?? user?.userId ?? '')
@@ -337,6 +342,8 @@ export function ActivityForm({
             }
             setValue('allowVisitorWaitlist', detail.allowVisitorWaitlist)
             setValue('repeat', rruleToRepeat(detail.recurrenceRule))
+            // W6-06: モーダルで選択した開備日をフォーム本体に反映
+            if (historyDate) setValue('date', historyDate)
             setShowHistoryDialog(false)
         } finally {
             setHistoryLoading(null)
@@ -389,8 +396,8 @@ export function ActivityForm({
         await onSubmit({
             title: data.title.trim(),
             description: data.description.trim(),
-            defaultLocation: data.isOnline ? 'オンライン' : data.defaultLocation.trim(),
-            defaultAddress: data.isOnline ? '' : data.defaultAddress.trim(),
+            defaultLocationCustom: data.isOnline ? '' : data.defaultLocationCustom.trim(),
+            defaultPlaceId: data.isOnline ? '' : data.defaultPlaceId,
             date: data.date,
             organizerUserId: data.organizerUserId,
             repeat: data.repeat,
@@ -436,6 +443,18 @@ export function ActivityForm({
                     <DialogHeader>
                         <DialogTitle>過去のアクティビティから入力</DialogTitle>
                     </DialogHeader>
+                    {/* W6-06: 開備日入力（過去不可） */}
+                    <div className="space-y-1.5 px-1">
+                        <Label htmlFor="history-date" className="text-sm">開備日</Label>
+                        <Input
+                            id="history-date"
+                            type="date"
+                            value={historyDate}
+                            min={today}
+                            onChange={(e) => setHistoryDate(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">選択したアクティビティにこの開備日を適用します。</p>
+                    </div>
                     <div className="flex-1 overflow-y-auto -mx-6 px-6">
                         {pastActivities.length === 0 ? (
                             <p className="py-8 text-sm text-muted-foreground text-center">履歴がありません</p>
@@ -445,13 +464,13 @@ export function ActivityForm({
                                     <li key={a.id}>
                                         <button
                                             type="button"
-                                            disabled={historyLoading != null}
+                                            disabled={historyLoading != null || !historyDate}
                                             onClick={() => applyHistory(a.id)}
                                             className="w-full text-left px-1 py-3 hover:bg-muted/50 rounded transition-colors disabled:opacity-50"
                                         >
                                             <p className="text-sm font-medium truncate">{a.title}</p>
                                             <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                                                {a.defaultLocation ?? ''}
+                                                {a.defaultLocationCustom ?? ''}
                                                 {a.defaultStartTime ? ` ${a.defaultStartTime}` : ''}
                                                 {a.defaultEndTime ? `〜${a.defaultEndTime}` : ''}
                                             </p>
@@ -523,23 +542,22 @@ export function ActivityForm({
             {/* 開催場所（オフライン時のみ表示） */}
             {!watch('isOnline') && (
                 <div className="space-y-1.5">
-                    <Label htmlFor="location">開催場所</Label>
-                    <Input
-                        id="location"
-                        placeholder="開催場所を入力"
-                        {...register('defaultLocation')}
-                    />
-                </div>
-            )}
-
-            {/* 開催場所住所（オフライン時のみ表示） */}
-            {!watch('isOnline') && (
-                <div className="space-y-1.5">
-                    <Label htmlFor="defaultAddress">開催場所住所（任意）</Label>
-                    <Input
-                        id="defaultAddress"
-                        placeholder="住所を入力するとGoogleマップリンクが表示されます"
-                        {...register('defaultAddress')}
+                    <div className="flex items-center gap-1.5">
+                        <Label htmlFor="location">開催場所</Label>
+                        <OsmAttributionInfo />
+                    </div>
+                    <PlaceCombobox
+                        inputValue={watch('defaultLocationCustom')}
+                        placeId={watch('defaultPlaceId')}
+                        onInputChange={(text) => setValue('defaultLocationCustom', text)}
+                        onSelect={(place) => {
+                            if (place) {
+                                setValue('defaultPlaceId', place.id)
+                                setValue('defaultLocationCustom', place.name)
+                            } else {
+                                setValue('defaultPlaceId', '')
+                            }
+                        }}
                     />
                 </div>
             )}

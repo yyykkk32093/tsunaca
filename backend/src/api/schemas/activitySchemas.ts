@@ -9,8 +9,8 @@ import { z } from 'zod/v4'
 export const createActivitySchema = z.object({
     title: z.string().min(1, 'タイトルは必須です').max(100),
     description: z.string().max(500).nullable().optional(),
-    defaultLocation: z.string().max(200).nullable().optional(),
-    defaultAddress: z.string().max(500).nullable().optional(),
+    defaultPlaceId: z.string().min(1).max(64).nullable().optional(),
+    defaultLocationCustom: z.string().max(200).nullable().optional(),
     defaultStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'HH:mm形式で入力してください').nullable().optional(),
     defaultEndTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'HH:mm形式で入力してください').nullable().optional(),
     recurrenceRule: z.string().max(500).nullable().optional(),
@@ -23,6 +23,7 @@ export const createActivitySchema = z.object({
     capacity: z.number().int().min(1).nullable().optional(),
     shouldPostAnnouncement: z.boolean().optional(),
     allowVisitorWaitlist: z.boolean().optional(),
+    visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
     recurrenceGenerationMonths: z.number().int().min(1).max(12).nullable().optional(),
 })
 
@@ -30,8 +31,9 @@ export const createActivitySchema = z.object({
 export const updateActivitySchema = z.object({
     title: z.string().min(1).max(100).optional(),
     description: z.string().max(500).nullable().optional(),
-    defaultLocation: z.string().max(200).nullable().optional(),
-    defaultAddress: z.string().max(500).nullable().optional(),
+    defaultPlaceId: z.string().min(1).max(64).nullable().optional(),
+    defaultLocationCustom: z.string().max(200).nullable().optional(),
+    isOnline: z.boolean().optional(),
     defaultStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional(),
     defaultEndTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().optional(),
     recurrenceRule: z.string().max(500).nullable().optional(),
@@ -40,6 +42,7 @@ export const updateActivitySchema = z.object({
     defaultVisitorFee: z.number().int().min(0).max(100_000).nullable().optional(),
     defaultCapacity: z.number().int().min(1).nullable().optional(),
     allowVisitorWaitlist: z.boolean().optional(),
+    visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
     recurrenceGenerationMonths: z.number().int().min(1).max(12).nullable().optional(),
 })
 
@@ -139,4 +142,44 @@ export const cancelOrDeleteScheduleSchema = z.object({
     operation: z.enum(['cancel', 'delete']),
     scope: z.enum(['single', 'all']),
     notifyOption: z.enum(['announcement', 'push_only', 'none']).default('push_only'),
+})
+
+// ── Matching (Wave6 Phase10) ──
+
+export const generateMatchingSchema = z.object({
+    mode: z.enum(['RANDOM', 'MIXED_LEVEL', 'SAME_LEVEL']),
+    rounds: z.number().int().min(1).max(30).default(10),
+    courtCount: z.number().int().min(1).max(20),
+    groupsPerCourt: z.number().int().min(1).max(4).default(2),
+    playersPerGroup: z.number().int().min(1).max(10),
+    categoryId: z.string().nullable().optional(),
+    categoryName: z.string().max(100).nullable().optional(),
+    formatName: z.string().max(100).nullable().optional(),
+    fixedPairs: z.array(z.tuple([z.string().uuid(), z.string().uuid()])).optional(),
+})
+
+export const appendMatchingRoundsSchema = z.object({
+    addRounds: z.number().int().min(1).max(20),
+})
+
+export const updateFixedPairsSchema = z.object({
+    fixedPairs: z.array(z.tuple([z.string().uuid(), z.string().uuid()])),
+})
+
+export const updateMatchingRoundSchema = z.object({
+    courts: z.array(z.object({
+        courtNo: z.number().int().min(1),
+        groups: z.array(z.object({
+            groupNo: z.number().int().min(1),
+            participantIds: z.array(z.string().uuid()),
+        })),
+    })),
+})
+
+export const updateMemberLevelSchema = z.object({
+    level: z.number().int().min(0).max(8).nullable(),
+})
+
+export const updateVisitorLevelSchema = z.object({
+    level: z.number().int().min(0).max(8).nullable(),
 })

@@ -49,10 +49,12 @@ export class CommunityMembershipRepositoryImpl implements ICommunityMembershipRe
                 role: membership.getRole().getValue(),
                 joinedAt: membership.getJoinedAt(),
                 leftAt: membership.getLeftAt(),
+                level: membership.getLevel(),
             },
             update: {
                 role: membership.getRole().getValue(),
                 leftAt: membership.getLeftAt(),
+                level: membership.getLevel(),
             },
         })
     }
@@ -65,6 +67,7 @@ export class CommunityMembershipRepositoryImpl implements ICommunityMembershipRe
             role: MembershipRole.reconstruct(row.role),
             joinedAt: row.joinedAt,
             leftAt: row.leftAt,
+            level: row.level,
         })
     }
 }

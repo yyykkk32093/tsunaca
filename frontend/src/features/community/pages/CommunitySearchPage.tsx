@@ -1,3 +1,4 @@
+import { AdBanner } from '@/features/ads/components/AdBanner'
 import {
     useCommunityMasters,
     useSearchCommunities,
@@ -131,6 +132,9 @@ export function CommunitySearchPage() {
                     />
                 </div>
             </div>
+
+            {/* [4] コミュニティ検索 — 検索テキストボックス直下 */}
+            <AdBanner slotId="community-search-below" />
 
             {/* 詳細検索トグル */}
             <div className="px-4 pb-2">

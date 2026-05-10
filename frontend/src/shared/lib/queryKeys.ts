@@ -159,6 +159,12 @@ export const paymentHistoryKeys = {
     byCommunity: (communityId: string) => ['payment-history', 'community', communityId] as const,
 }
 
+// ─── Matching ドメイン用 Key (Wave6 Phase10) ─────────────
+
+export const matchingKeys = {
+    bySchedule: (scheduleId: string) => ['matching', 'schedule', scheduleId] as const,
+}
+
 // ─── Announcement Social Key ────────────────────────────
 
 export const announcementCommentKeys = {

@@ -62,7 +62,7 @@ export class RecurringScheduleGenerator {
                 date,
                 startTime: activity.getDefaultStartTime() ?? TimeOfDay.create('09:00'),
                 endTime: activity.getDefaultEndTime() ?? TimeOfDay.create('10:00'),
-                location: activity.getDefaultLocation()?.getValue() ?? null,
+                location: activity.getDefaultLocationCustom() ?? null,
                 ...(activity.getDefaultParticipationFee() != null && {
                     participationFee: activity.getDefaultParticipationFee(),
                 }),

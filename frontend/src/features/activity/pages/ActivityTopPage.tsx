@@ -1,5 +1,8 @@
 import { ScheduleCard } from '@/features/activity/components/ScheduleCard'
 import { useUserSchedules } from '@/features/activity/hooks/useActivityQueries'
+import { AdBanner } from '@/features/ads/components/AdBanner'
+import { AdFeedItem } from '@/features/ads/components/AdFeedItem'
+import { useAd } from '@/features/ads/useAd'
 import { participationApi } from '@/features/participation/api/participationApi'
 import { SectionTabs } from '@/shared/components/SectionTabs'
 import { Calendar } from '@/shared/components/ui/calendar'
@@ -9,7 +12,7 @@ import { formatDay, formatWeekday, groupByMonthAndDate } from '@/shared/utils/da
 import { useQueryClient } from '@tanstack/react-query'
 import { endOfMonth, format, startOfMonth } from 'date-fns'
 import { Search } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { Fragment, useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 /**
@@ -114,6 +117,9 @@ function CalendarTab() {
                     </p>
                 )}
             </div>
+
+            {/* [11] カレンダー — 選択日スケジュール直下 */}
+            <AdBanner slotId="activity-calendar-feed" />
         </div>
     )
 }
@@ -174,6 +180,11 @@ function TimeLineTab() {
         }
     }, [queryClient])
 
+    // [9] フィード広告の表示判定
+    const timelineFeedAd = useAd('activity-timeline-feed')
+    const feedInterval = timelineFeedAd.config?.feedInterval ?? 4
+    const showFeedAd = timelineFeedAd.shouldShow && schedules.length >= (timelineFeedAd.config?.feedMinItems ?? feedInterval)
+
     return (
         <div className="flex flex-col">
             <div className="px-4 py-3 space-y-2">
@@ -197,40 +208,55 @@ function TimeLineTab() {
                 </label>
             </div>
 
+            {/* [10] タイムライン — 検索フィルタ直下 */}
+            <AdBanner slotId="activity-timeline-past-below" />
+
             {isLoading ? (
                 <div className="py-8 text-center text-gray-400 text-sm">読み込み中...</div>
             ) : schedules.length > 0 ? (
                 <div>
-                    {groupByMonthAndDate(schedules, (s) => s.date).map((mg) => {
-                        const [y, m] = mg.month.split('-')
-                        return (
-                            <div key={mg.month}>
-                                <div className="px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500">
-                                    {y}年{Number(m)}月
-                                </div>
-                                {mg.dateGroups.map((dg) => (
-                                    <div key={dg.date} className="flex border-b border-gray-100">
-                                        {/* 左列: 日付 + 曜日 */}
-                                        <div className="w-14 shrink-0 flex flex-col items-center justify-start pt-3 text-gray-500">
-                                            <span className="text-lg font-semibold leading-none">{formatDay(dg.date)}</span>
-                                            <span className="text-[10px] mt-0.5">{formatWeekday(dg.date)}</span>
-                                        </div>
-                                        {/* 右列: その日のカード群 */}
-                                        <div className="flex-1 min-w-0 divide-y divide-gray-50">
-                                            {dg.items.map((s: UserScheduleItem) => (
-                                                <ScheduleCard
-                                                    key={s.scheduleId}
-                                                    schedule={s}
-                                                    timeOnly
-                                                    onRemove={handleRemove}
-                                                />
-                                            ))}
-                                        </div>
+                    {/* [9] タイムラインフィード広告（日付グループ間に挿入） */}
+                    {(() => {
+                        let itemCount = 0
+                        return groupByMonthAndDate(schedules, (s) => s.date).map((mg) => {
+                            const [y, m] = mg.month.split('-')
+                            return (
+                                <div key={mg.month}>
+                                    <div className="px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500">
+                                        {y}年{Number(m)}月
                                     </div>
-                                ))}
-                            </div>
-                        )
-                    })}
+                                    {mg.dateGroups.map((dg) => {
+                                        const prev = itemCount
+                                        itemCount += dg.items.length
+                                        const insertAd = showFeedAd && Math.floor(itemCount / feedInterval) > Math.floor(prev / feedInterval)
+                                        return (
+                                            <Fragment key={dg.date}>
+                                                <div className="flex border-b border-gray-100">
+                                                    {/* 左列: 日付 + 曜日 */}
+                                                    <div className="w-14 shrink-0 flex flex-col items-center justify-start pt-3 text-gray-500">
+                                                        <span className="text-lg font-semibold leading-none">{formatDay(dg.date)}</span>
+                                                        <span className="text-[10px] mt-0.5">{formatWeekday(dg.date)}</span>
+                                                    </div>
+                                                    {/* 右列: その日のカード群 */}
+                                                    <div className="flex-1 min-w-0 divide-y divide-gray-50">
+                                                        {dg.items.map((s: UserScheduleItem) => (
+                                                            <ScheduleCard
+                                                                key={s.scheduleId}
+                                                                schedule={s}
+                                                                timeOnly
+                                                                onRemove={handleRemove}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                {insertAd && <AdFeedItem slotId="activity-timeline-feed" />}
+                                            </Fragment>
+                                        )
+                                    })}
+                                </div>
+                            )
+                        })
+                    })()}
                 </div>
             ) : (
                 <p className="py-12 text-center text-gray-400 text-sm">

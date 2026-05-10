@@ -14,6 +14,7 @@ router.get('/v1/activities/:activityId/schedules', authMiddleware, scheduleContr
 router.get('/v1/schedules/:id', authMiddleware, scheduleController.findById)
 router.patch('/v1/schedules/:id', authMiddleware, validateBody(updateScheduleSchema), scheduleController.update)
 router.patch('/v1/schedules/:id/cancel', authMiddleware, scheduleController.cancel)
+router.post('/v1/schedules/:id/restore', authMiddleware, scheduleController.restore)
 router.patch('/v1/schedules/:id/cancel-or-delete', authMiddleware, validateBody(cancelOrDeleteScheduleSchema), scheduleController.cancelOrDelete)
 
 export default router

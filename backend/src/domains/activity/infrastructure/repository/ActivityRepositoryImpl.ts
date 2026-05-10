@@ -6,7 +6,7 @@ import { Activity } from '../../domain/model/entity/Activity.js'
 import { ActivityDescription } from '../../domain/model/valueObject/ActivityDescription.js'
 import { ActivityId } from '../../domain/model/valueObject/ActivityId.js'
 import { ActivityTitle } from '../../domain/model/valueObject/ActivityTitle.js'
-import { DefaultLocation } from '../../domain/model/valueObject/DefaultLocation.js'
+import { ActivityVisibility } from '../../domain/model/valueObject/ActivityVisibility.js'
 import { TimeOfDay } from '../../domain/model/valueObject/TimeOfDay.js'
 import type { IActivityRepository } from '../../domain/repository/IActivityRepository.js'
 
@@ -52,14 +52,16 @@ export class ActivityRepositoryImpl implements IActivityRepository {
                 communityId: activity.getCommunityId().getValue(),
                 title: activity.getTitle().getValue(),
                 description: activity.getDescription()?.getValue() ?? null,
-                defaultLocation: activity.getDefaultLocation()?.getValue() ?? null,
-                defaultAddress: activity.getDefaultAddress(),
+                defaultPlaceId: activity.getDefaultPlaceId(),
+                defaultLocationCustom: activity.getDefaultLocationCustom(),
+                isOnline: activity.getIsOnline(),
                 defaultStartTime: activity.getDefaultStartTime()?.getValue() ?? null,
                 defaultEndTime: activity.getDefaultEndTime()?.getValue() ?? null,
                 defaultParticipationFee: activity.getDefaultParticipationFee()?.amount ?? null,
                 defaultVisitorFee: activity.getDefaultVisitorFee()?.amount ?? null,
                 defaultCapacity: activity.getDefaultCapacity(),
                 allowVisitorWaitlist: activity.getAllowVisitorWaitlist(),
+                visibility: activity.getVisibility().getValue(),
                 recurrenceRule: activity.getRecurrenceRule(),
                 organizerUserId: activity.getOrganizerUserId()?.getValue() ?? null,
                 createdBy: activity.getCreatedBy().getValue(),
@@ -68,14 +70,16 @@ export class ActivityRepositoryImpl implements IActivityRepository {
             update: {
                 title: activity.getTitle().getValue(),
                 description: activity.getDescription()?.getValue() ?? null,
-                defaultLocation: activity.getDefaultLocation()?.getValue() ?? null,
-                defaultAddress: activity.getDefaultAddress(),
+                defaultPlaceId: activity.getDefaultPlaceId(),
+                defaultLocationCustom: activity.getDefaultLocationCustom(),
+                isOnline: activity.getIsOnline(),
                 defaultStartTime: activity.getDefaultStartTime()?.getValue() ?? null,
                 defaultEndTime: activity.getDefaultEndTime()?.getValue() ?? null,
                 defaultParticipationFee: activity.getDefaultParticipationFee()?.amount ?? null,
                 defaultVisitorFee: activity.getDefaultVisitorFee()?.amount ?? null,
                 defaultCapacity: activity.getDefaultCapacity(),
                 allowVisitorWaitlist: activity.getAllowVisitorWaitlist(),
+                visibility: activity.getVisibility().getValue(),
                 recurrenceRule: activity.getRecurrenceRule(),
                 organizerUserId: activity.getOrganizerUserId()?.getValue() ?? null,
                 deletedAt: activity.getDeletedAt(),
@@ -89,14 +93,16 @@ export class ActivityRepositoryImpl implements IActivityRepository {
             communityId: CommunityId.reconstruct(row.communityId),
             title: ActivityTitle.reconstruct(row.title),
             description: row.description ? ActivityDescription.reconstruct(row.description) : null,
-            defaultLocation: row.defaultLocation ? DefaultLocation.reconstruct(row.defaultLocation) : null,
-            defaultAddress: row.defaultAddress ?? null,
+            defaultPlaceId: row.defaultPlaceId ?? null,
+            defaultLocationCustom: row.defaultLocationCustom ?? null,
+            isOnline: row.isOnline,
             defaultStartTime: row.defaultStartTime ? TimeOfDay.reconstruct(row.defaultStartTime) : null,
             defaultEndTime: row.defaultEndTime ? TimeOfDay.reconstruct(row.defaultEndTime) : null,
             defaultParticipationFee: row.defaultParticipationFee != null ? Fee.reconstruct(row.defaultParticipationFee) : null,
             defaultVisitorFee: row.defaultVisitorFee != null ? Fee.reconstruct(row.defaultVisitorFee) : null,
             defaultCapacity: row.defaultCapacity,
             allowVisitorWaitlist: row.allowVisitorWaitlist,
+            visibility: ActivityVisibility.reconstruct(row.visibility),
             recurrenceRule: row.recurrenceRule,
             organizerUserId: row.organizerUserId ? UserId.create(row.organizerUserId) : null,
             createdBy: UserId.create(row.createdBy),

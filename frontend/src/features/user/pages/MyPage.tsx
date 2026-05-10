@@ -178,7 +178,7 @@ export function MyPage() {
                             href="/paywall"
                             className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
                         >
-                            {profile.plan === 'FREE' ? 'アップグレード →' : 'プラン管理 →'}
+                            {profile.plan === 'FREE' || profile.plan === 'LITE' ? 'アップグレード →' : 'プラン管理 →'}
                         </a>
                     </div>
                 </div>

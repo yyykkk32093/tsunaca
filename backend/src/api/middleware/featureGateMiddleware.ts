@@ -178,3 +178,90 @@ export function requireCommunityLimit(
         next()
     }
 }
+
+/**
+ * requireScheduleCommunityFeature — Schedule 配下のルートで、所属コミュニティのグレードを判定する
+ *
+ * 使い方:
+ *   router.post('/v1/schedules/:id/matching', authMiddleware,
+ *     requireScheduleCommunityFeature('MATCHING', (req) => req.params.id),
+ *     handler)
+ */
+export function requireScheduleCommunityFeature(
+    feature: CommunityFeatureType,
+    scheduleIdExtractor: (req: Request) => string | undefined,
+) {
+    return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const scheduleId = scheduleIdExtractor(req)
+        if (!scheduleId) {
+            res.status(400).json({ code: 'BAD_REQUEST', message: 'scheduleId が必要です' })
+            return
+        }
+
+        const schedule = await prisma.schedule.findUnique({
+            where: { id: scheduleId },
+            select: { activity: { select: { community: { select: { grade: true } } } } },
+        })
+        if (!schedule) {
+            res.status(404).json({ code: 'SCHEDULE_NOT_FOUND', message: 'スケジュールが見つかりません' })
+            return
+        }
+
+        const grade = schedule.activity.community.grade
+        const enabled = await featureGateService.canUseCommunity(grade, feature)
+        if (!enabled) {
+            res.status(403).json({
+                code: 'COMMUNITY_FEATURE_RESTRICTED',
+                message: 'この機能はPREMIUMグレードのコミュニティでのみ利用可能です',
+                feature,
+            })
+            return
+        }
+
+        next()
+    }
+}
+
+/**
+ * requireParticipationCommunityFeature — Participation 配下のルートで、所属コミュニティのグレードを判定する
+ */
+export function requireParticipationCommunityFeature(
+    feature: CommunityFeatureType,
+    participationIdExtractor: (req: Request) => string | undefined,
+) {
+    return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        const participationId = participationIdExtractor(req)
+        if (!participationId) {
+            res.status(400).json({ code: 'BAD_REQUEST', message: 'participationId が必要です' })
+            return
+        }
+
+        const participation = await prisma.participation.findUnique({
+            where: { id: participationId },
+            select: {
+                schedule: {
+                    select: {
+                        activity: { select: { community: { select: { grade: true } } } },
+                    },
+                },
+            },
+        })
+        if (!participation) {
+            res.status(404).json({ code: 'PARTICIPATION_NOT_FOUND', message: '参加情報が見つかりません' })
+            return
+        }
+
+        const grade = participation.schedule.activity.community.grade
+        const enabled = await featureGateService.canUseCommunity(grade, feature)
+        if (!enabled) {
+            res.status(403).json({
+                code: 'COMMUNITY_FEATURE_RESTRICTED',
+                message: 'この機能はPREMIUMグレードのコミュニティでのみ利用可能です',
+                feature,
+            })
+            return
+        }
+
+        next()
+    }
+}

@@ -30,7 +30,14 @@ router.get('/v1/auth/me', authMiddleware, async (req, res) => {
 
     const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, plan: true, displayName: true, email: true, avatarUrl: true },
+        select: {
+            id: true,
+            plan: true,
+            displayName: true,
+            email: true,
+            avatarUrl: true,
+            systemRole: true,
+        },
     })
 
     if (!user) {
@@ -49,6 +56,7 @@ router.get('/v1/auth/me', authMiddleware, async (req, res) => {
         displayName: user.displayName,
         email: user.email,
         avatarUrl: user.avatarUrl,
+        systemRole: user.systemRole,
         features,
         limits,
     })

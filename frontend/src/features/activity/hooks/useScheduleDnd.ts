@@ -49,8 +49,8 @@ export function useScheduleDnd({ communityId }: UseScheduleDndParams) {
                     await activityApi.create(schedule.communityId, {
                         title: activity.title,
                         description: activity.description,
-                        defaultLocation: detail.location,
-                        defaultAddress: activity.defaultAddress,
+                        defaultLocationCustom: detail.location,
+                        defaultPlaceId: activity.defaultPlaceId,
                         defaultStartTime: detail.startTime,
                         defaultEndTime: detail.endTime,
                         organizerUserId: activity.organizerUserId,

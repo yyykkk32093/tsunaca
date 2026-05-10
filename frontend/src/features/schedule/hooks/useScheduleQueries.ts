@@ -48,6 +48,17 @@ export function useCancelSchedule(activityId: string) {
     })
 }
 
+export function useRestoreSchedule(activityId: string) {
+    const qc = useQueryClient()
+    return useMutation({
+        mutationFn: (scheduleId: string) => scheduleApi.restore(scheduleId),
+        onSuccess: (_data, scheduleId) => {
+            qc.invalidateQueries({ queryKey: scheduleListKeys.byActivity(activityId) })
+            qc.invalidateQueries({ queryKey: scheduleKeys.detail(scheduleId) })
+        },
+    })
+}
+
 export function useCancelOrDeleteSchedule(activityId: string, communityId: string) {
     const qc = useQueryClient()
     return useMutation({

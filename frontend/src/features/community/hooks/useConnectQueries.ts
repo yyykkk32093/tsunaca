@@ -29,8 +29,11 @@ export function useStartOnboarding(communityId: string) {
             return connectApi.startOnboarding(communityId, refreshUrl, returnUrl)
         },
         onSuccess: (data) => {
-            // Account Link URL へリダイレクト
-            window.location.href = data.accountLinkUrl
+            // 新規ウィンドウを優先。ブロックされた場合は同一タブにフォールバック
+            const opened = window.open(data.accountLinkUrl, '_blank', 'noopener,noreferrer')
+            if (!opened) {
+                window.location.href = data.accountLinkUrl
+            }
         },
         onSettled: () => {
             qc.invalidateQueries({ queryKey: connectKeys.status(communityId) })

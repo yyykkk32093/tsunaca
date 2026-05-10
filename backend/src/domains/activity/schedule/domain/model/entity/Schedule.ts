@@ -2,6 +2,7 @@ import { DomainValidationError } from '@/domains/_sharedDomains/error/DomainVali
 import { AggregateRoot } from '@/domains/_sharedDomains/model/entity/AggregateRoot.js'
 import { Fee } from '@/domains/_sharedDomains/model/valueObject/Fee.js'
 import { ActivityId } from '@/domains/activity/domain/model/valueObject/ActivityId.js'
+import { ActivityVisibility } from '@/domains/activity/domain/model/valueObject/ActivityVisibility.js'
 import { TimeOfDay } from '@/domains/activity/domain/model/valueObject/TimeOfDay.js'
 import { ScheduleCapacity } from '../valueObject/ScheduleCapacity.js'
 import { ScheduleId } from '../valueObject/ScheduleId.js'
@@ -30,6 +31,7 @@ export class Schedule extends AggregateRoot {
         private visitorFee: Fee | null,
         private isOnline: boolean,
         private meetingUrl: string | null,
+        private visibility: ActivityVisibility | null,
         private deletedAt: Date | null,
     ) {
         super()
@@ -48,6 +50,7 @@ export class Schedule extends AggregateRoot {
         visitorFee?: Fee | null
         isOnline?: boolean
         meetingUrl?: string | null
+        visibility?: ActivityVisibility | null
     }): Schedule {
         if (!params.startTime.isBefore(params.endTime)) {
             throw new DomainValidationError(
@@ -70,6 +73,7 @@ export class Schedule extends AggregateRoot {
             params.visitorFee ?? null,
             params.isOnline ?? false,
             params.meetingUrl ?? null,
+            params.visibility ?? null,
             null,
         )
     }
@@ -88,6 +92,7 @@ export class Schedule extends AggregateRoot {
         visitorFee: Fee | null
         isOnline: boolean
         meetingUrl: string | null
+        visibility: ActivityVisibility | null
         deletedAt: Date | null
     }): Schedule {
         return new Schedule(
@@ -104,6 +109,7 @@ export class Schedule extends AggregateRoot {
             params.visitorFee,
             params.isOnline,
             params.meetingUrl,
+            params.visibility,
             params.deletedAt,
         )
     }
@@ -121,6 +127,7 @@ export class Schedule extends AggregateRoot {
         visitorFee?: Fee | null
         isOnline?: boolean
         meetingUrl?: string | null
+        visibility?: ActivityVisibility | null
     }): void {
         if (this.isDeleted()) {
             throw new DomainValidationError('削除済みスケジュールは更新できません', 'SCHEDULE_ALREADY_DELETED')
@@ -138,6 +145,7 @@ export class Schedule extends AggregateRoot {
         if (params.visitorFee !== undefined) this.visitorFee = params.visitorFee
         if (params.isOnline !== undefined) this.isOnline = params.isOnline
         if (params.meetingUrl !== undefined) this.meetingUrl = params.meetingUrl
+        if (params.visibility !== undefined) this.visibility = params.visibility
 
         // 更新後の整合性チェック
         if (!this.startTime.isBefore(this.endTime)) {
@@ -156,6 +164,27 @@ export class Schedule extends AggregateRoot {
             throw new DomainValidationError('すでにキャンセル済みです', 'SCHEDULE_ALREADY_CANCELLED')
         }
         this.status = ScheduleStatus.cancelled()
+    }
+
+    /**
+     * Wave6 W6-08: 中止されたスケジュールを中止取り消し、SCHEDULED に戻す。
+     * - 削除済み、未中止、開催日を越えたものは不可
+     * - 参加者/待機リストは中止時に削除されていないため自動復帰される
+     */
+    restore(now: Date = new Date()): void {
+        if (this.isDeleted()) {
+            throw new DomainValidationError('削除済みスケジュールは復元できません', 'SCHEDULE_ALREADY_DELETED')
+        }
+        if (!this.isCancelled()) {
+            throw new DomainValidationError('中止されていないスケジュールは復元できません', 'SCHEDULE_NOT_CANCELLED')
+        }
+        // 開催日を過ぎたものは復元不可（Q4-3: 期限は開催日まで）
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const scheduleDate = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate())
+        if (scheduleDate < today) {
+            throw new DomainValidationError('開催日を過ぎたスケジュールは復元できません', 'SCHEDULE_RESTORE_EXPIRED')
+        }
+        this.status = ScheduleStatus.scheduled()
     }
 
     softDelete(): void {
@@ -198,5 +227,6 @@ export class Schedule extends AggregateRoot {
     getVisitorFee(): Fee | null { return this.visitorFee }
     getIsOnline(): boolean { return this.isOnline }
     getMeetingUrl(): string | null { return this.meetingUrl }
+    getVisibilityOverride(): ActivityVisibility | null { return this.visibility }
     getDeletedAt(): Date | null { return this.deletedAt }
 }

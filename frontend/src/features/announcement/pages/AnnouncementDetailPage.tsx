@@ -6,6 +6,7 @@ import {
 } from '@/features/announcement/hooks/useAnnouncementSocialQueries'
 import { CommentSection } from '@/features/home/components/CommentSection'
 import { ImagePreviewGallery } from '@/shared/components/ui/ImagePreviewModal'
+import { useRedirectOnNotFound } from '@/shared/hooks/useRedirectOnNotFound'
 import { announcementFeedKeys } from '@/shared/lib/queryKeys'
 import { formatJapaneseDateTime } from '@/shared/utils/dateFormat'
 import { useQueryClient } from '@tanstack/react-query'
@@ -15,7 +16,8 @@ import { Link, useParams } from 'react-router-dom'
 export function AnnouncementDetailPage() {
     const { id } = useParams<{ id: string }>()
     const qc = useQueryClient()
-    const { data: announcement, isLoading } = useAnnouncement(id!)
+    const { data: announcement, isLoading, error: announcementError } = useAnnouncement(id!)
+    useRedirectOnNotFound(announcementError)
     const likeMutation = useToggleAnnouncementLike()
     const bookmarkMutation = useToggleAnnouncementBookmark()
     const markedRef = useRef(false)

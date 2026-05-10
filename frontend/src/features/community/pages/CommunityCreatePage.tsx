@@ -1,3 +1,4 @@
+import { AdBanner } from '@/features/ads/components/AdBanner'
 import {
     defaultSettingsData,
     SettingsStep2,
@@ -166,6 +167,8 @@ function WizardForm() {
                     </Button>
                 )}
             </div>
+            {/* [7] コミュニティ作成 — 各ステップのボタン直下 */}
+            <AdBanner slotId="community-create-step-below" />
             {createMutation.isError && (<p className="text-red-500 text-sm mt-2 text-center">{(createMutation.error as Error).message}</p>)}
         </div>
     )

@@ -1,9 +1,9 @@
 import { DomainValidationError } from '@/domains/_sharedDomains/error/DomainValidationError.js'
 import { ValueObject } from '@/domains/_sharedDomains/model/valueObject/ValueObject.js'
 
-export type UserPlanType = 'FREE' | 'SUBSCRIBER' | 'LIFETIME'
+export type UserPlanType = 'FREE' | 'LITE' | 'PRO' | 'LIFETIME'
 
-const VALID_PLANS: readonly UserPlanType[] = ['FREE', 'SUBSCRIBER', 'LIFETIME'] as const
+const VALID_PLANS: readonly UserPlanType[] = ['FREE', 'LITE', 'PRO', 'LIFETIME'] as const
 
 export class UserPlan extends ValueObject<UserPlanType> {
     private constructor(value: UserPlanType) {
@@ -30,16 +30,25 @@ export class UserPlan extends ValueObject<UserPlanType> {
         return this.getValue() === 'FREE'
     }
 
-    isSubscriber(): boolean {
-        return this.getValue() === 'SUBSCRIBER'
+    isLite(): boolean {
+        return this.getValue() === 'LITE'
+    }
+
+    isPro(): boolean {
+        return this.getValue() === 'PRO'
     }
 
     isLifetime(): boolean {
         return this.getValue() === 'LIFETIME'
     }
 
-    /** SUBSCRIBER または LIFETIME なら true（有料プラン判定） */
+    /** LITE/PRO/LIFETIME なら true（有料プラン判定） */
     isPaid(): boolean {
         return !this.isFree()
+    }
+
+    /** PRO または LIFETIME なら true（PREMIUM コミュニティグレード判定用） */
+    isPremiumPlan(): boolean {
+        return this.isPro() || this.isLifetime()
     }
 }

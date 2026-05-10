@@ -1,6 +1,8 @@
 import type { NextFunction, Request, Response } from 'express'
 
+import { prisma } from '@/_sharedTech/db/client.js'
 import { usecaseFactory } from '@/api/_usecaseFactory.js'
+import { z } from 'zod/v4'
 
 export const userController = {
     async signUp(req: Request, res: Response, next: NextFunction) {
@@ -69,6 +71,30 @@ export const userController = {
             // Cookie クリア（Web 向け）
             res.clearCookie('token', { httpOnly: true, sameSite: 'lax', path: '/' })
             res.status(204).send()
+        } catch (err) {
+            next(err)
+        }
+    },
+
+    // ---- Wave6 Phase 9b-05: ロケール設定 ----
+
+    async getLocale(req: Request, res: Response, next: NextFunction) {
+        try {
+            const userId = req.user!.userId
+            const u = await prisma.user.findUnique({ where: { id: userId }, select: { locale: true } })
+            res.status(200).json({ locale: u?.locale ?? null })
+        } catch (err) {
+            next(err)
+        }
+    },
+
+    async updateLocale(req: Request, res: Response, next: NextFunction) {
+        try {
+            const userId = req.user!.userId
+            const schema = z.object({ locale: z.enum(['ja', 'en']).nullable() })
+            const { locale } = schema.parse(req.body)
+            await prisma.user.update({ where: { id: userId }, data: { locale } })
+            res.status(200).json({ locale })
         } catch (err) {
             next(err)
         }

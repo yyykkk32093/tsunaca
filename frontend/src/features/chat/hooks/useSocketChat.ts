@@ -98,8 +98,11 @@ export function useSocketChat({ channelId }: UseSocketChatOptions): UseSocketCha
         if (!socket || !channelId) return
 
         const handleNewMessage = (msg: WsMessage) => {
-            // 現在表示中のチャンネルのメッセージのみキャッシュ更新
-            if (msg.channelId !== channelId) return
+            // W5-25: 他チャンネルのメッセージ→ツリー未読数を更新
+            if (msg.channelId !== channelId) {
+                qc.invalidateQueries({ queryKey: ['channels', 'community-tree'] })
+                return
+            }
 
             // スレッド返信はトップレベルキャッシュに追加しない（thread:new で処理）
             if (msg.parentMessageId) return

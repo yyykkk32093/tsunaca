@@ -4,6 +4,7 @@ import type { IParticipationRepository } from '@/domains/activity/schedule/parti
 import type { IPaymentRepository } from '@/domains/activity/schedule/participation/domain/repository/IPaymentRepository.js'
 import type { IWaitlistEntryRepository } from '@/domains/activity/schedule/waitlist/domain/repository/IWaitlistEntryRepository.js'
 import type { ICommunityRepository } from '@/domains/community/domain/repository/ICommunityRepository.js'
+import type { ICommunityMembershipRepository } from '@/domains/community/membership/domain/repository/ICommunityMembershipRepository.js'
 import { ScheduleNotFoundError } from '../error/ScheduleNotFoundError.js'
 
 export type MyScheduleStatus = 'none' | 'attending' | 'waitlisted'
@@ -16,6 +17,7 @@ export class FindScheduleUseCase {
         private readonly waitlistEntryRepository: IWaitlistEntryRepository,
         private readonly paymentRepository: IPaymentRepository,
         private readonly communityRepository: ICommunityRepository,
+        private readonly membershipRepository: ICommunityMembershipRepository,
     ) { }
 
     async execute(input: { scheduleId: string; userId?: string }): Promise<{
@@ -35,8 +37,20 @@ export class FindScheduleUseCase {
 
         const scheduleId = schedule.getId().getValue()
         const activity = await this.activityRepository.findById(schedule.getActivityId().getValue())
-        const communityId = activity?.getCommunityId().getValue() ?? ''
-        const community = communityId ? await this.communityRepository.findById(communityId) : null
+        if (!activity) throw new ScheduleNotFoundError()
+        const communityId = activity.getCommunityId().getValue()
+        const community = await this.communityRepository.findById(communityId)
+        if (!community) throw new ScheduleNotFoundError()
+
+        // Wave6 W6-04: 認可チェック
+        const isMember = await this.isActiveMember(communityId, input.userId)
+        if (!community.getIsPublic() && !isMember) {
+            throw new ScheduleNotFoundError()
+        }
+        const effectiveVisibility = schedule.getVisibilityOverride() ?? activity.getVisibility()
+        if (!isMember && effectiveVisibility.isPrivate()) {
+            throw new ScheduleNotFoundError()
+        }
 
         const [attendingCount, waitlistCount, participation, waitlistEntry, payment] = await Promise.all([
             this.participationRepository.count(scheduleId),
@@ -80,5 +94,12 @@ export class FindScheduleUseCase {
             enabledPaymentMethods: community?.getEnabledPaymentMethods() ?? ['CASH'],
             paypayId: community?.getPayPayId() ?? null,
         }
+    }
+
+    private async isActiveMember(communityId: string, viewerUserId: string | null | undefined): Promise<boolean> {
+        if (!viewerUserId) return false
+        const m = await this.membershipRepository.findByCommunityAndUser(communityId, viewerUserId)
+        if (!m) return false
+        return m.getLeftAt() === null
     }
 }

@@ -38,7 +38,9 @@ import {
     SignInPasswordUserTxRepositories,
     SignInPasswordUserUseCase,
 } from '@/application/auth/password/usecase/SignInPasswordUserUseCase.js'
+import { CancelSubscriptionUseCase } from '@/application/billing/usecase/CancelSubscriptionUseCase.js'
 import { HandleRevenueCatWebhookUseCase } from '@/application/billing/usecase/HandleRevenueCatWebhookUseCase.js'
+import { ListAvailablePlansUseCase } from '@/application/billing/usecase/ListAvailablePlansUseCase.js'
 import { AcceptInviteTxRepositories, AcceptInviteUseCase } from '@/application/community/usecase/AcceptInviteUseCase.js'
 import { AddMemberTxRepositories, AddMemberUseCase } from '@/application/community/usecase/AddMemberUseCase.js'
 import { ChangeMemberRoleTxRepositories, ChangeMemberRoleUseCase } from '@/application/community/usecase/ChangeMemberRoleUseCase.js'
@@ -58,6 +60,7 @@ import { RequestJoinCommunityTxRepositories, RequestJoinCommunityUseCase } from 
 import { SearchCommunitiesUseCase } from '@/application/community/usecase/SearchCommunitiesUseCase.js'
 import { SoftDeleteCommunityTxRepositories, SoftDeleteCommunityUseCase } from '@/application/community/usecase/SoftDeleteCommunityUseCase.js'
 import { UpdateCommunityTxRepositories, UpdateCommunityUseCase } from '@/application/community/usecase/UpdateCommunityUseCase.js'
+import { UpdateMemberLevelTxRepositories, UpdateMemberLevelUseCase } from '@/application/community/usecase/UpdateMemberLevelUseCase.js'
 import { AddGuestVisitorTxRepositories, AddGuestVisitorUseCase } from '@/application/participation/usecase/AddGuestVisitorUseCase.js'
 import { AddRegisteredVisitorTxRepositories, AddRegisteredVisitorUseCase } from '@/application/participation/usecase/AddRegisteredVisitorUseCase.js'
 import { AttendScheduleTxRepositories, AttendScheduleUseCase } from '@/application/participation/usecase/AttendScheduleUseCase.js'
@@ -112,12 +115,14 @@ import { DeleteWebhookConfigUseCase } from '@/application/webhook/usecase/Delete
 import { GetWebhookConfigsUseCase } from '@/application/webhook/usecase/GetWebhookConfigsUseCase.js'
 import { UpsertWebhookConfigUseCase } from '@/application/webhook/usecase/UpsertWebhookConfigUseCase.js'
 
+import { SearchPlaceUseCase } from '@/application/place/usecase/SearchPlaceUseCase.js'
 import { CancelOrDeleteScheduleTxRepositories, CancelOrDeleteScheduleUseCase } from '@/application/schedule/usecase/CancelOrDeleteScheduleUseCase.js'
 import { CancelScheduleTxRepositories, CancelScheduleUseCase } from '@/application/schedule/usecase/CancelScheduleUseCase.js'
 import { CreateScheduleTxRepositories, CreateScheduleUseCase } from '@/application/schedule/usecase/CreateScheduleUseCase.js'
 import { FindScheduleUseCase } from '@/application/schedule/usecase/FindScheduleUseCase.js'
 import { ListSchedulesUseCase } from '@/application/schedule/usecase/ListSchedulesUseCase.js'
 import { ListUserSchedulesUseCase } from '@/application/schedule/usecase/ListUserSchedulesUseCase.js'
+import { RestoreScheduleTxRepositories, RestoreScheduleUseCase } from '@/application/schedule/usecase/RestoreScheduleUseCase.js'
 import { UpdateScheduleTxRepositories, UpdateScheduleUseCase } from '@/application/schedule/usecase/UpdateScheduleUseCase.js'
 import { RegisterUserService } from '@/application/user/service/RegisterUserService.js'
 import { DeleteUserTxRepositories, DeleteUserUseCase } from '@/application/user/usecase/DeleteUserUseCase.js'
@@ -147,6 +152,7 @@ import { CommunityAuditLogRepositoryImpl } from '@/domains/community/auditLog/in
 import { CommunityMembershipRepositoryImpl } from '@/domains/community/infrastructure/repository/CommunityMembershipRepositoryImpl.js'
 import { CommunityRepositoryImpl } from '@/domains/community/infrastructure/repository/CommunityRepositoryImpl.js'
 import { InviteTokenRepositoryImpl } from '@/domains/community/invite/infrastructure/repository/InviteTokenRepositoryImpl.js'
+import { PlaceRepositoryImpl } from '@/domains/place/infrastructure/repository/PlaceRepositoryImpl.js'
 import { PollRepositoryImpl } from '@/domains/poll/infrastructure/repository/PollRepositoryImpl.js'
 import { PollVoteRepositoryImpl } from '@/domains/poll/infrastructure/repository/PollVoteRepositoryImpl.js'
 import { CommunityWebhookConfigRepositoryImpl } from '@/domains/webhook/infrastructure/repository/CommunityWebhookConfigRepositoryImpl.js'
@@ -181,6 +187,7 @@ import { ExpenseRepositoryImpl } from '@/domains/expense/infrastructure/reposito
 import { AddReactionUseCase } from '@/application/chat/usecase/AddReactionUseCase.js'
 import { CreateDMChannelTxRepositories, CreateDMChannelUseCase } from '@/application/chat/usecase/CreateDMChannelUseCase.js'
 import { DeleteMessageUseCase } from '@/application/chat/usecase/DeleteMessageUseCase.js'
+import { GetCommunityChannelTreeUseCase } from '@/application/chat/usecase/GetCommunityChannelTreeUseCase.js'
 import { GetOrCreateActivityChannelUseCase } from '@/application/chat/usecase/GetOrCreateActivityChannelUseCase.js'
 import { GetOrCreateCommunityChannelUseCase } from '@/application/chat/usecase/GetOrCreateCommunityChannelUseCase.js'
 import { GetThreadRepliesUseCase } from '@/application/chat/usecase/GetThreadRepliesUseCase.js'
@@ -188,6 +195,7 @@ import { LeaveDMChannelUseCase } from '@/application/chat/usecase/LeaveDMChannel
 import { ListChannelMessagesUseCase } from '@/application/chat/usecase/ListChannelMessagesUseCase.js'
 import { ListDMChannelsUseCase } from '@/application/chat/usecase/ListDMChannelsUseCase.js'
 import { ListMyChannelsUseCase } from '@/application/chat/usecase/ListMyChannelsUseCase.js'
+import { MarkChannelReadUseCase } from '@/application/chat/usecase/MarkChannelReadUseCase.js'
 import { RemoveReactionUseCase } from '@/application/chat/usecase/RemoveReactionUseCase.js'
 import { SearchChannelMessagesUseCase } from '@/application/chat/usecase/SearchChannelMessagesUseCase.js'
 import { SendMessageUseCase } from '@/application/chat/usecase/SendMessageUseCase.js'
@@ -314,7 +322,10 @@ export const usecaseFactory = {
     },
 
     createFindCommunityUseCase() {
-        return new FindCommunityUseCase(new CommunityRepositoryImpl(prisma))
+        return new FindCommunityUseCase(
+            new CommunityRepositoryImpl(prisma),
+            new CommunityMembershipRepositoryImpl(prisma),
+        )
     },
 
     createListCommunitiesUseCase() {
@@ -392,6 +403,14 @@ export const usecaseFactory = {
         return new ChangeMemberRoleUseCase(new UuidGenerator(), unitOfWork)
     },
 
+    createUpdateMemberLevelUseCase() {
+        const unitOfWork = new PrismaUnitOfWork<UpdateMemberLevelTxRepositories>((tx) => ({
+            membership: new CommunityMembershipRepositoryImpl(tx),
+            auditLog: new CommunityAuditLogRepositoryImpl(tx),
+        }))
+        return new UpdateMemberLevelUseCase(unitOfWork)
+    },
+
     createLeaveCommunityUseCase() {
         TransactionalDomainEventBootstrap.bootstrap()
         const txEventBus = TransactionalDomainEventBootstrap.getEventBus()
@@ -413,6 +432,12 @@ export const usecaseFactory = {
         )
     },
 
+    // ---- Place ----
+
+    createSearchPlaceUseCase() {
+        return new SearchPlaceUseCase(new PlaceRepositoryImpl(prisma))
+    },
+
     // ---- Activity ----
 
     createCreateActivityUseCase() {
@@ -431,6 +456,8 @@ export const usecaseFactory = {
             new ActivityRepositoryImpl(prisma),
             new UserRepositoryImpl(prisma),
             new CommunityRepositoryImpl(prisma),
+            new CommunityMembershipRepositoryImpl(prisma),
+            new PlaceRepositoryImpl(prisma),
         )
     },
 
@@ -487,11 +514,19 @@ export const usecaseFactory = {
             new WaitlistEntryRepositoryImpl(prisma),
             new PaymentRepositoryImpl(prisma),
             new CommunityRepositoryImpl(prisma),
+            new CommunityMembershipRepositoryImpl(prisma),
         )
     },
 
     createListSchedulesUseCase() {
-        return new ListSchedulesUseCase(new ScheduleRepositoryImpl(prisma), new ParticipationRepositoryImpl(prisma))
+        return new ListSchedulesUseCase(
+            new ScheduleRepositoryImpl(prisma),
+            new ParticipationRepositoryImpl(prisma),
+            new ActivityRepositoryImpl(prisma),
+            new CommunityRepositoryImpl(prisma),
+            new CommunityMembershipRepositoryImpl(prisma),
+            new PaymentRepositoryImpl(prisma),
+        )
     },
     createListUserSchedulesUseCase() {
         return new ListUserSchedulesUseCase(new CommunityMembershipRepositoryImpl(prisma), prisma)
@@ -519,12 +554,23 @@ export const usecaseFactory = {
         return new CancelScheduleUseCase(unitOfWork, notificationService)
     },
 
+    createRestoreScheduleUseCase() {
+        const unitOfWork = new PrismaUnitOfWork<RestoreScheduleTxRepositories>((tx) => ({
+            schedule: new ScheduleRepositoryImpl(tx),
+            activity: new ActivityRepositoryImpl(tx),
+            membership: new CommunityMembershipRepositoryImpl(tx),
+            payment: new PaymentRepositoryImpl(tx),
+        }))
+        return new RestoreScheduleUseCase(unitOfWork)
+    },
+
     createCancelOrDeleteScheduleUseCase() {
         const unitOfWork = new PrismaUnitOfWork<CancelOrDeleteScheduleTxRepositories>((tx) => ({
             schedule: new ScheduleRepositoryImpl(tx),
             activity: new ActivityRepositoryImpl(tx),
             membership: new CommunityMembershipRepositoryImpl(tx),
             participation: new ParticipationRepositoryImpl(tx),
+            waitlist: new WaitlistEntryRepositoryImpl(tx),
             notification: new NotificationRepositoryImpl(tx),
             outbox: new OutboxRepository(tx),
             announcement: new AnnouncementRepositoryImpl(tx),
@@ -926,9 +972,21 @@ export const usecaseFactory = {
 
     createHandleRevenueCatWebhookUseCase() {
         return new HandleRevenueCatWebhookUseCase(
-            new RevenueCatBillingService(),
+            new RevenueCatBillingService(new StripeServiceImpl()),
+            new UserRepositoryImpl(prisma),
+            new CommunityRepositoryImpl(prisma),
+        )
+    },
+
+    createCancelSubscriptionUseCase() {
+        return new CancelSubscriptionUseCase(
+            new RevenueCatBillingService(new StripeServiceImpl()),
             new UserRepositoryImpl(prisma),
         )
+    },
+
+    createListAvailablePlansUseCase() {
+        return new ListAvailablePlansUseCase(prisma)
     },
 
     // ---- Phase 4: Analytics & Export (UBL-17〜22) ----
@@ -1275,5 +1333,13 @@ export const usecaseFactory = {
 
     createListMyChannelsUseCase() {
         return new ListMyChannelsUseCase(prisma, new DMChannelRepositoryImpl(prisma))
+    },
+
+    createGetCommunityChannelTreeUseCase() {
+        return new GetCommunityChannelTreeUseCase(prisma, new DMChannelRepositoryImpl(prisma))
+    },
+
+    createMarkChannelReadUseCase() {
+        return new MarkChannelReadUseCase(prisma)
     },
 }

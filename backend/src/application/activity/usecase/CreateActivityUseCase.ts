@@ -7,7 +7,7 @@ import { Activity } from '@/domains/activity/domain/model/entity/Activity.js'
 import { ActivityDescription } from '@/domains/activity/domain/model/valueObject/ActivityDescription.js'
 import { ActivityId } from '@/domains/activity/domain/model/valueObject/ActivityId.js'
 import { ActivityTitle } from '@/domains/activity/domain/model/valueObject/ActivityTitle.js'
-import { DefaultLocation } from '@/domains/activity/domain/model/valueObject/DefaultLocation.js'
+import { ActivityVisibility } from '@/domains/activity/domain/model/valueObject/ActivityVisibility.js'
 import { TimeOfDay } from '@/domains/activity/domain/model/valueObject/TimeOfDay.js'
 import type { IActivityRepository } from '@/domains/activity/domain/repository/IActivityRepository.js'
 import { Schedule } from '@/domains/activity/schedule/domain/model/entity/Schedule.js'
@@ -42,8 +42,8 @@ export class CreateActivityUseCase {
         communityId: string
         title: string
         description?: string | null
-        defaultLocation?: string | null
-        defaultAddress?: string | null
+        defaultPlaceId?: string | null
+        defaultLocationCustom?: string | null
         defaultStartTime?: string | null
         defaultEndTime?: string | null
         recurrenceRule?: string | null
@@ -56,6 +56,7 @@ export class CreateActivityUseCase {
         capacity?: number | null
         userId: string
         allowVisitorWaitlist?: boolean
+        visibility?: 'PUBLIC' | 'PRIVATE'
         shouldPostAnnouncement?: boolean  // Phase3 #4: お知らせ同時投稿
         recurrenceGenerationMonths?: number  // 繰返しスケジュール生成期間（月数）デフォルト2、最大12
     }): Promise<{ activityId: string; scheduleId?: string }> {
@@ -81,14 +82,16 @@ export class CreateActivityUseCase {
                 communityId: CommunityId.create(input.communityId),
                 title: ActivityTitle.create(input.title),
                 description: ActivityDescription.createNullable(input.description),
-                defaultLocation: DefaultLocation.createNullable(input.defaultLocation),
-                defaultAddress: input.defaultAddress ?? null,
+                defaultPlaceId: input.defaultPlaceId ?? null,
+                defaultLocationCustom: input.defaultLocationCustom ?? null,
+                isOnline: input.isOnline ?? false,
                 defaultStartTime: TimeOfDay.createNullable(input.defaultStartTime),
                 defaultEndTime: TimeOfDay.createNullable(input.defaultEndTime),
                 defaultParticipationFee: Fee.createNullable(input.participationFee),
                 defaultVisitorFee: Fee.createNullable(input.visitorFee),
                 defaultCapacity: input.capacity ?? null,
                 allowVisitorWaitlist: input.allowVisitorWaitlist ?? false,
+                visibility: input.visibility ? ActivityVisibility.create(input.visibility) : ActivityVisibility.private(),
                 recurrenceRule: input.recurrenceRule ?? null,
                 organizerUserId: input.organizerUserId ? UserId.create(input.organizerUserId) : null,
                 createdBy: UserId.create(input.userId),
@@ -106,7 +109,7 @@ export class CreateActivityUseCase {
                     date: new Date(input.date),
                     startTime: TimeOfDay.create(input.defaultStartTime ?? '09:00'),
                     endTime: TimeOfDay.create(input.defaultEndTime ?? '10:00'),
-                    location: input.defaultLocation ?? null,
+                    location: input.defaultLocationCustom ?? null,
                     participationFee: Fee.createNullable(input.participationFee),
                     visitorFee: Fee.createNullable(input.visitorFee),
                     isOnline: input.isOnline ?? false,
@@ -124,7 +127,7 @@ export class CreateActivityUseCase {
                     id: announcementId,
                     communityId: CommunityId.create(input.communityId),
                     authorId: UserId.create(input.userId),
-                    title: AnnouncementTitle.create(input.title),
+                    title: AnnouncementTitle.create('新規予定'),
                     content: AnnouncementContent.create(
                         `アクティビティ「${input.title}」が作成されました。`,
                     ),

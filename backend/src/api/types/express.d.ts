@@ -6,6 +6,13 @@ declare namespace Express {
         user?: {
             userId: string
             email: string
+            /**
+             * Wave6 Phase 8-A: プラットフォーム（運営側）権限。
+             * authMiddleware では設定されない（JWT 軽量化のため）。
+             * requireSystemAdmin ミドルウェア通過後にのみ確実にセットされる。
+             * 値: 'USER' | 'OPERATOR' | 'SUPER_ADMIN'
+             */
+            systemRole?: string
         }
     }
 }

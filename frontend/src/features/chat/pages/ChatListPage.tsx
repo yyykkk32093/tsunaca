@@ -1,33 +1,57 @@
-import { ChannelListItem } from '@/features/chat/components/ChannelListItem'
-import { ChannelSection } from '@/features/chat/components/ChannelSection'
+import { AdBanner } from '@/features/ads/components/AdBanner'
 import { ChatSearchBar } from '@/features/chat/components/ChatSearchBar'
-import { useMyChannels } from '@/features/chat/hooks/useChatQueries'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/shared/components/ui/collapsible'
-import type { MyActivityChannel } from '@/shared/types/api'
-import { ChevronDown, Loader2, MessageCircle } from 'lucide-react'
+import { CommunityChannelTree } from '@/features/chat/components/CommunityChannelTree'
+import { useCommunityChannelTree } from '@/features/chat/hooks/useChatQueries'
+import type { ActivityCommunityTreeNode, CommunityTreeNode, DMTreeItem } from '@/shared/types/api'
+import { Loader2, MessageCircle } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
-/** アクティビティチャンネルの表示名を「アクティビティ名：開催日時」に整形 */
-function formatActivityChannelName(ch: MyActivityChannel): string {
-    if (ch.scheduleDate && ch.scheduleStartTime && ch.scheduleEndTime) {
-        return `${ch.name}：${ch.scheduleDate} ${ch.scheduleStartTime}〜${ch.scheduleEndTime}`
-    }
-    return ch.name
+/** 再帰的にコミュニティツリーをフィルタ */
+function filterCommunityTree(nodes: CommunityTreeNode[], q: string): CommunityTreeNode[] {
+    return nodes.reduce<CommunityTreeNode[]>((acc, node) => {
+        const nameMatch = node.name.toLowerCase().includes(q)
+        const msgMatch = node.lastMessage?.content.toLowerCase().includes(q)
+        const filteredChildren = filterCommunityTree(node.children, q)
+        if (nameMatch || msgMatch || filteredChildren.length > 0) {
+            acc.push({
+                ...node,
+                children: filteredChildren,
+            })
+        }
+        return acc
+    }, [])
 }
 
-/** コミュニティ名で展開・非展開できるサブグループ */
-function CommunityGroup({ name, children }: { name: string; children: React.ReactNode }) {
-    const [open, setOpen] = useState(true)
-    return (
-        <Collapsible open={open} onOpenChange={setOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full px-4 py-2 hover:bg-gray-50 transition-colors">
-                <span className="text-xs font-semibold text-gray-500">{name}</span>
-                <ChevronDown
-                    className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-                />
-            </CollapsibleTrigger>
-            <CollapsibleContent>{children}</CollapsibleContent>
-        </Collapsible>
+/** アクティビティツリーを再帰的にフィルタ */
+function filterActivityTree(nodes: ActivityCommunityTreeNode[], q: string): ActivityCommunityTreeNode[] {
+    return nodes.reduce<ActivityCommunityTreeNode[]>((acc, node) => {
+        const communityMatch = node.communityName.toLowerCase().includes(q)
+        const filteredActivities = node.activities.filter(
+            (a) =>
+                a.name.toLowerCase().includes(q) ||
+                a.lastMessage?.content.toLowerCase().includes(q),
+        )
+        const filteredChildren = filterActivityTree(node.children, q)
+        if (communityMatch || filteredActivities.length > 0 || filteredChildren.length > 0) {
+            acc.push({
+                ...node,
+                activities: communityMatch ? node.activities : filteredActivities,
+                children: filteredChildren,
+                unreadCount: communityMatch
+                    ? node.unreadCount
+                    : filteredActivities.reduce((sum, a) => sum + a.unreadCount, 0) +
+                    filteredChildren.reduce((sum, c) => sum + c.unreadCount, 0),
+            })
+        }
+        return acc
+    }, [])
+}
+
+function filterDM(items: DMTreeItem[], q: string): DMTreeItem[] {
+    return items.filter(
+        (item) =>
+            item.participants.some((p) => p.toLowerCase().includes(q)) ||
+            item.lastMessage?.content.toLowerCase().includes(q),
     )
 }
 
@@ -35,35 +59,20 @@ function CommunityGroup({ name, children }: { name: string; children: React.Reac
  * ChatListPage — チャット一覧画面
  *
  * BottomNav「チャット」タブのランディング。
- * Community / Activity / DirectMessage の3セクション（アコーディオン）で
- * チャンネル一覧＋最新メッセージプレビューを表示する。
+ * W5-25: コミュニティツリー形式で表示＋未読バッジ付き。
  */
 export function ChatListPage() {
-    const { data, isLoading, error } = useMyChannels()
+    const { data, isLoading, error } = useCommunityChannelTree()
     const [search, setSearch] = useState('')
 
-    // ローカルフィルタリング
     const filtered = useMemo(() => {
         if (!data) return null
         const q = search.toLowerCase().trim()
         if (!q) return data
         return {
-            community: data.community.filter(
-                (ch) =>
-                    ch.name.toLowerCase().includes(q) ||
-                    ch.lastMessage?.content.toLowerCase().includes(q),
-            ),
-            activity: data.activity.filter(
-                (ch) =>
-                    ch.name.toLowerCase().includes(q) ||
-                    ch.subtitle.toLowerCase().includes(q) ||
-                    ch.lastMessage?.content.toLowerCase().includes(q),
-            ),
-            dm: data.dm.filter(
-                (ch) =>
-                    ch.participants.some((p) => p.toLowerCase().includes(q)) ||
-                    ch.lastMessage?.content.toLowerCase().includes(q),
-            ),
+            communities: filterCommunityTree(data.communities, q),
+            activityTree: filterActivityTree(data.activityTree, q),
+            dm: filterDM(data.dm, q),
         }
     }, [data, search])
 
@@ -84,13 +93,16 @@ export function ChatListPage() {
         )
     }
 
-    const { community = [], activity = [], dm = [] } = filtered ?? {}
-    const isEmpty = community.length === 0 && activity.length === 0 && dm.length === 0
+    const { communities = [], activityTree = [], dm = [] } = filtered ?? {}
+    const isEmpty = communities.length === 0 && activityTree.length === 0 && dm.length === 0
 
     return (
         <div className="flex flex-col min-h-full">
             {/* 検索バー */}
             <ChatSearchBar value={search} onChange={setSearch} />
+
+            {/* [13] チャット検索バー直下 */}
+            <AdBanner slotId="chat-list-search-below" />
 
             {isEmpty && !search ? (
                 <div className="flex flex-col items-center justify-center py-20 text-gray-400">
@@ -102,64 +114,7 @@ export function ChatListPage() {
                     <p className="text-sm">「{search}」に一致するチャットはありません</p>
                 </div>
             ) : (
-                <div className="flex-1">
-                    {/* Community セクション */}
-                    {community.length > 0 && (
-                        <ChannelSection title="Community" defaultOpen count={community.length}>
-                            {community.map((ch) => (
-                                <ChannelListItem
-                                    key={ch.channelId}
-                                    channelId={ch.channelId}
-                                    name={ch.name}
-                                    avatarUrl={ch.avatarUrl}
-                                    lastMessage={ch.lastMessage}
-                                />
-                            ))}
-                        </ChannelSection>
-                    )}
-
-                    {/* Activity セクション（コミュニティ名でグルーピング＋展開・非展開） */}
-                    {activity.length > 0 && (
-                        <ChannelSection title="Activity" defaultOpen count={activity.length}>
-                            {(() => {
-                                // コミュニティ名でグルーピング
-                                const grouped = new Map<string, typeof activity>()
-                                for (const ch of activity) {
-                                    const key = ch.communityName || ch.subtitle || '不明'
-                                    const arr = grouped.get(key) ?? []
-                                    arr.push(ch)
-                                    grouped.set(key, arr)
-                                }
-                                return Array.from(grouped.entries()).map(([communityName, channels]) => (
-                                    <CommunityGroup key={communityName} name={communityName}>
-                                        {channels.map((ch) => (
-                                            <ChannelListItem
-                                                key={ch.channelId}
-                                                channelId={ch.channelId}
-                                                name={formatActivityChannelName(ch)}
-                                                lastMessage={ch.lastMessage}
-                                            />
-                                        ))}
-                                    </CommunityGroup>
-                                ))
-                            })()}
-                        </ChannelSection>
-                    )}
-
-                    {/* DirectMessage セクション */}
-                    {dm.length > 0 && (
-                        <ChannelSection title="DirectMessage" defaultOpen count={dm.length}>
-                            {dm.map((ch) => (
-                                <ChannelListItem
-                                    key={ch.channelId}
-                                    channelId={ch.channelId}
-                                    name={ch.participants.filter((p) => p !== 'me').join(', ') || 'DM'}
-                                    lastMessage={ch.lastMessage}
-                                />
-                            ))}
-                        </ChannelSection>
-                    )}
-                </div>
+                <CommunityChannelTree communities={communities} activityTree={activityTree} dm={dm} />
             )}
         </div>
     )

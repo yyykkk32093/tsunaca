@@ -1,3 +1,4 @@
+import { AdBanner } from '@/features/ads/components/AdBanner'
 import { CommunityProfileHeader } from '@/features/community/components/CommunityProfileHeader'
 import { ActivitiesTab } from '@/features/community/components/detail/tabs/ActivitiesTab'
 import { AlbumTab, AnnouncementTab, ChatTab } from '@/features/community/components/tabs'
@@ -5,6 +6,7 @@ import { useCommunity, useMyRole } from '@/features/community/hooks/useCommunity
 import { FloatingActionButton } from '@/shared/components/FloatingActionButton'
 import { useSetHeaderTitle } from '@/shared/components/HeaderActionsContext'
 import { SectionTabs } from '@/shared/components/SectionTabs'
+import { useRedirectOnNotFound } from '@/shared/hooks/useRedirectOnNotFound'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 const VALID_TABS = ['announcements', 'activities', 'chat', 'album'] as const
@@ -19,7 +21,8 @@ const VALID_TABS = ['announcements', 'activities', 'chat', 'album'] as const
 export function CommunityDetailPage() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
-    const { data: community, isLoading } = useCommunity(id!)
+    const { data: community, isLoading, error: communityError } = useCommunity(id!)
+    useRedirectOnNotFound(communityError)
     const { isAdminOrAbove } = useMyRole(id!)
     const [searchParams, setSearchParams] = useSearchParams()
     const tabParam = searchParams.get('tab')
@@ -57,6 +60,9 @@ export function CommunityDetailPage() {
         <div className="pb-4">
             {/* 2-2, 2-3: 統計・設定ボタンは CommunityProfileHeader 内に配置 */}
             <CommunityProfileHeader community={community} />
+
+            {/* [8] コミュニティ詳細 — 招待ボタン等の下 */}
+            <AdBanner slotId="community-detail-below" />
 
             <div className="mt-2 px-4">
                 <SectionTabs

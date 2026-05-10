@@ -12,7 +12,7 @@ const router = Router();
 
 /**
  * POST /v1/dm/channels
- * DM チャンネル作成（SUBSCRIBER/LIFETIME のみ新規開始可能）
+ * DM チャンネル作成（PRO/LIFETIME のみ新規開始可能）
  */
 router.post('/v1/dm/channels', authMiddleware, requireFeature(UserFeature.DM_CREATE), validateBody(createDMSchema), async (req: Request, res: Response, next: NextFunction) => {
     try {

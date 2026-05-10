@@ -21,4 +21,8 @@ router.get('/v1/messages/:messageId/replies', authMiddleware, chatController.get
 // ---- Message actions ----
 router.delete('/v1/messages/:messageId', authMiddleware, chatController.deleteMessage)
 
+// ---- W5-25: Community channel tree + unread ----
+router.get('/v1/channels/community-tree', authMiddleware, chatController.getCommunityChannelTree)
+router.put('/v1/channels/:channelId/read', authMiddleware, chatController.markChannelRead)
+
 export default router

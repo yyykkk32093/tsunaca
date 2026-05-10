@@ -11,7 +11,7 @@ const router = Router();
 
 /**
  * POST /v1/stamps
- * スタンプ作成（SUBSCRIBER/LIFETIME のみ, 上限100）
+ * スタンプ作成（PRO/LIFETIME のみ, 上限100）
  */
 router.post(
     '/v1/stamps',

@@ -16,9 +16,13 @@ export interface PlanChangeImpact {
 
 export class PlanChangePolicy {
     /**
-     * FREE → SUBSCRIBER: 常に許可
-     * SUBSCRIBER → FREE: PREMIUM コミュニティ OWNER がいる場合に警告
-     * LIFETIME: 降格不可
+     * プラン変更のビジネスルール:
+     * - FREE → LITE/PRO: 常に許可
+     * - LITE → PRO: 常に許可（アップグレード）
+     * - LITE → FREE: 許可（ダウングレード）
+     * - PRO → LITE: 許可（PREMIUM コミュニティが FREE に）
+     * - PRO → FREE: 許可（PREMIUM コミュニティが FREE に）
+     * - LIFETIME: 降格不可
      */
     static evaluate(params: {
         currentPlan: UserPlan
@@ -37,8 +41,11 @@ export class PlanChangePolicy {
             }
         }
 
-        // アップグレード: 常に許可
-        if (currentPlan.isFree() && newPlan.isPaid()) {
+        // アップグレード: FREE → 有料、LITE → PRO
+        if (
+            (currentPlan.isFree() && newPlan.isPaid()) ||
+            (currentPlan.isLite() && newPlan.isPremiumPlan())
+        ) {
             return {
                 allowed: true,
                 affectedCommunities: 0,
@@ -46,8 +53,8 @@ export class PlanChangePolicy {
             }
         }
 
-        // ダウングレード: SUBSCRIBER → FREE
-        if (currentPlan.isSubscriber() && newPlan.isFree()) {
+        // ダウングレード: PRO → FREE/LITE（PREMIUM コミュニティに影響）
+        if (currentPlan.isPro() && !newPlan.isPremiumPlan()) {
             return {
                 allowed: true,
                 reason: ownedPremiumCommunityCount > 0
@@ -55,6 +62,15 @@ export class PlanChangePolicy {
                     : undefined,
                 affectedCommunities: ownedPremiumCommunityCount,
                 downgradeCount: ownedPremiumCommunityCount,
+            }
+        }
+
+        // ダウングレード: LITE → FREE
+        if (currentPlan.isLite() && newPlan.isFree()) {
+            return {
+                allowed: true,
+                affectedCommunities: 0,
+                downgradeCount: 0,
             }
         }
 

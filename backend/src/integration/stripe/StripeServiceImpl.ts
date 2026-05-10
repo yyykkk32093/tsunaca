@@ -9,6 +9,7 @@ import Stripe from 'stripe'
 import type {
     ConnectAccountStatus,
     CreateAccountLinkResult,
+    CreateConnectAccountInput,
     CreateConnectAccountResult,
     CreateLoginLinkResult,
     CreatePaymentIntentResult,
@@ -16,6 +17,9 @@ import type {
 } from './IStripeService.js'
 
 export class StripeServiceImpl implements IStripeService {
+    private static readonly DEFAULT_BUSINESS_WEBSITE_URL = 'https://tsunaca.com'
+    private static readonly DEFAULT_BUSINESS_MCC = '8699'
+
     private _stripe: Stripe | null = null
 
     private get stripe(): Stripe {
@@ -26,10 +30,22 @@ export class StripeServiceImpl implements IStripeService {
         return this._stripe
     }
 
-    async createConnectAccount(): Promise<CreateConnectAccountResult> {
+    async createConnectAccount(input?: CreateConnectAccountInput): Promise<CreateConnectAccountResult> {
+        const mcc = input?.mcc?.trim() || StripeServiceImpl.DEFAULT_BUSINESS_MCC
+        const websiteUrl = input?.websiteUrl?.trim() || StripeServiceImpl.DEFAULT_BUSINESS_WEBSITE_URL
+        const productDescription = input?.productDescription?.trim() || '会費・参加費の集金'
+
         const account = await this.stripe.accounts.create({
             type: 'express',
             country: 'JP',
+            // 本サービスの想定は固定（管理者個人による会費・参加費集金）
+            business_type: 'individual',
+            // ビジネス詳細の必須項目を固定値で事前入力する（業種・Webサイト・商品説明）
+            business_profile: {
+                mcc,
+                url: websiteUrl,
+                product_description: productDescription,
+            },
             capabilities: {
                 card_payments: { requested: true },
                 transfers: { requested: true },
@@ -37,6 +53,25 @@ export class StripeServiceImpl implements IStripeService {
         })
 
         return { stripeAccountId: account.id }
+    }
+
+    async updateConnectAccountPrefill(params: {
+        stripeAccountId: string
+        mcc?: string | null
+        websiteUrl?: string | null
+        productDescription?: string | null
+    }): Promise<void> {
+        const mcc = params.mcc?.trim() || StripeServiceImpl.DEFAULT_BUSINESS_MCC
+        const websiteUrl = params.websiteUrl?.trim() || StripeServiceImpl.DEFAULT_BUSINESS_WEBSITE_URL
+        const productDescription = params.productDescription?.trim() || '会費・参加費の集金'
+
+        await this.stripe.accounts.update(params.stripeAccountId, {
+            business_profile: {
+                mcc,
+                url: websiteUrl,
+                product_description: productDescription,
+            },
+        })
     }
 
     async createAccountLink(params: {
@@ -105,6 +140,10 @@ export class StripeServiceImpl implements IStripeService {
             payment_intent: paymentIntentId,
             ...(amount !== undefined ? { amount } : {}),
         })
+    }
+
+    async cancelSubscription(subscriptionId: string): Promise<void> {
+        await this.stripe.subscriptions.cancel(subscriptionId)
     }
 
     verifyWebhookSignature(payload: string | Buffer, signature: string): Stripe.Event {

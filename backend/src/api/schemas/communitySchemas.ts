@@ -92,6 +92,12 @@ export const changeMemberRoleSchema = z.object({
     propagateToChildren: z.boolean().optional(),
 })
 
+/** PATCH /v1/communities/:id/members/:userId/level */
+export const updateMembershipLevelSchema = z.object({
+    /** 0〜8 の整数。null でクリア */
+    level: z.number().int().min(0).max(8).nullable(),
+})
+
 /** POST /v1/communities/:id/join-request */
 export const joinRequestSchema = z.object({
     message: z.string().max(500).optional(),

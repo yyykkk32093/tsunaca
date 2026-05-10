@@ -10,6 +10,7 @@
 
 import { AppSecretsLoader } from '@/_sharedTech/config/AppSecretsLoader.js'
 import { logger } from '@/_sharedTech/logger/logger.js'
+import type { IStripeService } from '@/integration/stripe/IStripeService.js'
 import type { IBillingService, SubscriptionInfo } from './IBillingService.js'
 
 /**
@@ -33,6 +34,11 @@ interface RevenueCatSubscriberResponse {
             expires_date: string | null
             product_identifier: string
         }>
+        subscriptions: Record<string, {
+            store: string
+            expires_date: string | null
+            unsubscribe_detected_at: string | null
+        }>
         non_subscriptions: Record<string, Array<{
             id: string
             purchase_date: string
@@ -42,10 +48,14 @@ interface RevenueCatSubscriberResponse {
 
 // RevenueCat の entitlement 識別子
 const ENTITLEMENT_PRO = 'pro'
-// LIFETIME 商品 ID（RevenueCat の product_id と一致させる）
+const ENTITLEMENT_LITE = 'lite'
+// 商品 ID（RevenueCat の product_id と一致させる）
 const LIFETIME_PRODUCT_ID = 'tsunaca_lifetime'
+const LITE_PRODUCT_ID = 'tsunaca_lite'
 
 export class RevenueCatBillingService implements IBillingService {
+    constructor(private readonly stripeService: IStripeService) { }
+
     parseWebhookEvent(payload: unknown): SubscriptionInfo | null {
         try {
             const data = payload as RevenueCatWebhookPayload
@@ -76,9 +86,11 @@ export class RevenueCatBillingService implements IBillingService {
                     const expiresAt = event.expiration_at_ms
                         ? new Date(event.expiration_at_ms)
                         : null
+                    // product_id で LITE / PRO を判定
+                    const plan = event.product_id === LITE_PRODUCT_ID ? 'LITE' as const : 'PRO' as const
                     return {
                         appUserId,
-                        plan: 'SUBSCRIBER',
+                        plan,
                         expiresAt,
                         isActive: true,
                     }
@@ -134,7 +146,7 @@ export class RevenueCatBillingService implements IBillingService {
             }
         }
 
-        // Entitlement チェック
+        // Entitlement チェック（PRO entitlement）
         const proEntitlement = data.subscriber.entitlements[ENTITLEMENT_PRO]
         if (proEntitlement) {
             const expiresAt = proEntitlement.expires_date
@@ -146,7 +158,24 @@ export class RevenueCatBillingService implements IBillingService {
 
             return {
                 appUserId,
-                plan: isActive ? 'SUBSCRIBER' : 'FREE',
+                plan: isActive ? 'PRO' : 'FREE',
+                expiresAt,
+                isActive,
+            }
+        }
+
+        // Entitlement チェック（LITE entitlement）
+        const liteEntitlement = data.subscriber.entitlements[ENTITLEMENT_LITE]
+        if (liteEntitlement) {
+            const expiresAt = liteEntitlement.expires_date
+                ? new Date(liteEntitlement.expires_date)
+                : null
+
+            const isActive = expiresAt ? expiresAt > new Date() : true
+
+            return {
+                appUserId,
+                plan: isActive ? 'LITE' : 'FREE',
                 expiresAt,
                 isActive,
             }
@@ -167,5 +196,41 @@ export class RevenueCatBillingService implements IBillingService {
             ? authHeader.slice(7)
             : authHeader
         return token === config.webhookAuthToken
+    }
+
+    async cancelSubscription(appUserId: string): Promise<void> {
+        const config = AppSecretsLoader.getRevenueCat()
+
+        // RevenueCat API からサブスク情報を取得し、Stripe subscription ID を特定
+        const res = await fetch(
+            `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(appUserId)}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${config.apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+            },
+        )
+
+        if (!res.ok) {
+            throw new Error(`RevenueCat API error: ${res.status} ${res.statusText}`)
+        }
+
+        const data = (await res.json()) as RevenueCatSubscriberResponse
+        const subscriptions = data.subscriber.subscriptions
+
+        // Stripe 経由のアクティブなサブスクリプションを探す
+        const stripeSubId = Object.keys(subscriptions).find((key) => {
+            const sub = subscriptions[key]
+            return sub.store === 'stripe' && !sub.unsubscribe_detected_at
+        })
+
+        if (!stripeSubId) {
+            throw new Error('キャンセル対象の Stripe サブスクリプションが見つかりません')
+        }
+
+        // Stripe API でキャンセル（RevenueCat は Stripe webhook で自動同期）
+        await this.stripeService.cancelSubscription(stripeSubId)
+        logger.info(`Cancelled Stripe subscription ${stripeSubId} for user ${appUserId}`)
     }
 }

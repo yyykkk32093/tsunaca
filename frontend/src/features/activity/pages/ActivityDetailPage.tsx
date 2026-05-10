@@ -1,5 +1,6 @@
 import { useAuth } from '@/app/providers/AuthProvider'
 import { useActivity, useChangeOrganizer, type NotifyOption } from '@/features/activity/hooks/useActivityQueries'
+import { AdBanner } from '@/features/ads/components/AdBanner'
 import { chatApi } from '@/features/chat/api/chatApi'
 import { useMyRole } from '@/features/community/hooks/useCommunityQueries'
 import { useMembers } from '@/features/community/hooks/useMemberQueries'
@@ -7,7 +8,7 @@ import { BulkConfirmDialog } from '@/features/participation/components/BulkConfi
 import { ParticipationActionButton } from '@/features/participation/components/ParticipationActionButton'
 import { RefundPendingSection } from '@/features/participation/components/RefundPendingSection'
 import { useAddVisitor, useBulkUpdatePayment, useConfirmPayment, useParticipants, useRemoveParticipation, useUpdateVisitorPayment, useVisitorNameSuggestions, useWaitlistEntries } from '@/features/participation/hooks/useParticipationQueries'
-import { useCancelOrDeleteSchedule, useSchedule, useSchedules } from '@/features/schedule/hooks/useScheduleQueries'
+import { useCancelOrDeleteSchedule, useRestoreSchedule, useSchedule, useSchedules } from '@/features/schedule/hooks/useScheduleQueries'
 import { useSetHeaderActions } from '@/shared/components/HeaderActionsContext'
 import {
     Dialog,
@@ -17,6 +18,7 @@ import {
 } from '@/shared/components/ui/dialog'
 import { Input } from '@/shared/components/ui/input'
 import { Separator } from '@/shared/components/ui/separator'
+import { useRedirectOnNotFound } from '@/shared/hooks/useRedirectOnNotFound'
 import type { Member, ParticipantItem, ScheduleListItem } from '@/shared/types/api'
 import { formatDateLabel } from '@/shared/utils/dateGroup'
 import { ArrowLeftRight, Banknote, Calendar, ClipboardCheck, Edit, ExternalLink, MapPin, Repeat, Settings, Trash2, User, UserMinus, UserPlus } from 'lucide-react'
@@ -39,8 +41,10 @@ export function ActivityDetailPage() {
     const navigate = useNavigate()
     const [searchParams, setSearchParams] = useSearchParams()
     const scheduleIdParam = searchParams.get('schedule')
-    const { data: activity, isLoading } = useActivity(id!)
+    const { data: activity, isLoading, error: activityError } = useActivity(id!)
+    useRedirectOnNotFound(activityError)
     const { data: schedulesData, isLoading: isSchedulesLoading, isError: isSchedulesError, error: schedulesError, refetch: refetchSchedules } = useSchedules(id!)
+    useRedirectOnNotFound(schedulesError)
     const schedules = schedulesData?.schedules ?? []
     const { role: currentUserRole, isAdminOrAbove } = useMyRole(activity?.communityId ?? '')
     const cancelOrDeleteMutation = useCancelOrDeleteSchedule(id!, activity?.communityId ?? '')
@@ -323,6 +327,9 @@ export function ActivityDetailPage() {
                 )}
             </div>
 
+            {/* [14] スケジュールセクション直下 */}
+            <AdBanner slotId="activity-detail-participants-below" />
+
             {/* ── 幹事変更ダイアログ ── */}
             {activity && (
                 <ChangeOrganizerDialog
@@ -390,14 +397,20 @@ export function ActivityDetailPage() {
                         </div>
                     )}
 
-                    {/* ③ 通知オプション */}
+                    {/* ③ 通知オプション (Wave6 W6-10: 削除時は「お知らせ投稿」選択肢のみ除外) */}
                     <div className="space-y-2">
                         <p className="text-xs font-medium text-gray-500">参加者への通知</p>
-                        {([
-                            { value: 'announcement' as NotifyOption, label: 'お知らせとして投稿する', desc: 'お知らせ一覧に表示 + プッシュ通知' },
-                            { value: 'push_only' as NotifyOption, label: 'プッシュ通知のみ', desc: 'プッシュ通知のみ送信' },
-                            { value: 'none' as NotifyOption, label: '通知なし', desc: '通知せずに実行' },
-                        ]).map(({ value, label, desc }) => (
+                        {(dialogOperation === 'delete'
+                            ? ([
+                                { value: 'push_only' as NotifyOption, label: 'プッシュ通知のみ', desc: '参加者・キャンセル待ちユーザーへのプッシュ通知のみ' },
+                                { value: 'none' as NotifyOption, label: '通知しない', desc: '参加者・キャンセル待ちユーザーには通知しない' },
+                            ])
+                            : ([
+                                { value: 'announcement' as NotifyOption, label: 'お知らせ投稿 + プッシュ通知', desc: 'コミュニティのお知らせとして投稿し、参加者にプッシュ通知を送信' },
+                                { value: 'push_only' as NotifyOption, label: 'プッシュ通知のみ', desc: '参加者・キャンセル待ちユーザーへのプッシュ通知のみ' },
+                                { value: 'none' as NotifyOption, label: '通知しない', desc: '参加者・キャンセル待ちユーザーには通知しない' },
+                            ])
+                        ).map(({ value, label, desc }) => (
                             <label key={value} className="flex items-start gap-2 cursor-pointer">
                                 <input
                                     type="radio"
@@ -687,6 +700,19 @@ function ScheduleSection({ schedule, communityId, enabledPaymentMethods, paypayI
                         </table>
                     </div>
                 </div>
+                {/* Wave6 W6-08: 中止スケジュールの中止取り消し */}
+                {isCancelled && isAdminOrAbove && schedule.date && new Date(`${schedule.date}T23:59:59`).getTime() >= Date.now() && (
+                    <div className="mt-2 flex flex-col items-end gap-1">
+                        {schedule.hasPayments && (
+                            <p className="text-xs text-red-500">決済処理中のレコードが存在するため中止を取り消せません。</p>
+                        )}
+                        <RestoreScheduleButton
+                            scheduleId={schedule.id}
+                            activityId={schedule.activityId}
+                            hasPayments={schedule.hasPayments ?? false}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* キャンセル待ち一覧（参加上限がある場合のみ表示） */}
@@ -1082,5 +1108,35 @@ function ChangeOrganizerDialog({
                 </div>
             </DialogContent>
         </Dialog>
+    )
+}
+
+// Wave6 W6-08: 中止スケジュールの中止取り消しボタン
+function RestoreScheduleButton({ scheduleId, activityId, hasPayments }: {
+    scheduleId: string
+    activityId: string
+    hasPayments: boolean
+}) {
+    const restoreMutation = useRestoreSchedule(activityId)
+    const handleClick = () => {
+        if (hasPayments) return
+        if (!confirm('このスケジュールの中止を取り消しますか？参加者一覧が再表示されます（通知は送信されません）。')) return
+        restoreMutation.mutate(scheduleId, {
+            onError: (err: unknown) => {
+                const message = err instanceof Error ? err.message : '中止取り消しに失敗しました'
+                alert(message)
+            },
+        })
+    }
+    return (
+        <button
+            type="button"
+            onClick={handleClick}
+            disabled={hasPayments || restoreMutation.isPending}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 px-3 py-1.5 rounded-md shadow-sm border border-blue-700 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+            <Repeat className="w-3.5 h-3.5" />
+            {restoreMutation.isPending ? '取り消し中…' : '中止を取り消す'}
+        </button>
     )
 }

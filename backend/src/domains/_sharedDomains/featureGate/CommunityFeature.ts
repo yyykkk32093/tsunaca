@@ -25,6 +25,8 @@ export const CommunityFeature = {
     ANALYTICS_REPORT: 'ANALYTICS_REPORT',
     /** AI連携 */
     AI_INTEGRATION: 'AI_INTEGRATION',
+    /** マッチング（組み合わせ）生成・確認 */
+    MATCHING: 'MATCHING',
 } as const
 
 export type CommunityFeatureType =

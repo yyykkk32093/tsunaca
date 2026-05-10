@@ -14,7 +14,7 @@ VALUES (gen_random_uuid(), 'FREE', 'DM_CREATE', false, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'DM_CREATE', true, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'DM_CREATE', true, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
@@ -27,7 +27,7 @@ VALUES (gen_random_uuid(), 'FREE', 'CHAT_SEARCH', false, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'CHAT_SEARCH', true, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'CHAT_SEARCH', true, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
@@ -40,7 +40,7 @@ VALUES (gen_random_uuid(), 'FREE', 'FILE_ATTACHMENT', false, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'FILE_ATTACHMENT', true, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'FILE_ATTACHMENT', true, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
@@ -53,7 +53,7 @@ VALUES (gen_random_uuid(), 'FREE', 'PIN_BOOKMARK', false, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'PIN_BOOKMARK', true, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'PIN_BOOKMARK', true, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
@@ -66,7 +66,7 @@ VALUES (gen_random_uuid(), 'FREE', 'CALENDAR_EXPORT', false, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'CALENDAR_EXPORT', true, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'CALENDAR_EXPORT', true, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
@@ -79,7 +79,7 @@ VALUES (gen_random_uuid(), 'FREE', 'EXTERNAL_NOTIFICATION', false, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'EXTERNAL_NOTIFICATION', true, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'EXTERNAL_NOTIFICATION', true, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
@@ -92,7 +92,7 @@ VALUES (gen_random_uuid(), 'FREE', 'AD_FREE', false, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'AD_FREE', true, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'AD_FREE', true, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
@@ -105,11 +105,37 @@ VALUES (gen_random_uuid(), 'FREE', 'CUSTOM_STAMP', false, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'CUSTOM_STAMP', true, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'CUSTOM_STAMP', true, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
 VALUES (gen_random_uuid(), 'LIFETIME', 'CUSTOM_STAMP', true, NOW(), NOW())
+ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
+
+-- ---- LITE プラン（FREE と同一だが AD_FREE のみ true）----
+INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'DM_CREATE', false, NOW(), NOW())
+ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
+INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'CHAT_SEARCH', false, NOW(), NOW())
+ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
+INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'FILE_ATTACHMENT', false, NOW(), NOW())
+ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
+INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'PIN_BOOKMARK', false, NOW(), NOW())
+ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
+INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'CALENDAR_EXPORT', false, NOW(), NOW())
+ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
+INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'EXTERNAL_NOTIFICATION', false, NOW(), NOW())
+ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
+INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'AD_FREE', true, NOW(), NOW())
+ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
+INSERT INTO "UserFeatureRestriction" ("id","plan","feature","enabled","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'CUSTOM_STAMP', false, NOW(), NOW())
 ON CONFLICT ("plan","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 -- ============================================================
@@ -123,7 +149,7 @@ VALUES (gen_random_uuid(), 'FREE', 'maxJoinCommunities', 5, NOW(), NOW())
 ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
 
 INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'maxJoinCommunities', -1, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'maxJoinCommunities', -1, NOW(), NOW())
 ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
 
 INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
@@ -136,7 +162,7 @@ VALUES (gen_random_uuid(), 'FREE', 'maxRootCommunities', 1, NOW(), NOW())
 ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
 
 INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'maxRootCommunities', 5, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'maxRootCommunities', 5, NOW(), NOW())
 ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
 
 INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
@@ -149,7 +175,7 @@ VALUES (gen_random_uuid(), 'FREE', 'maxSubCommunities', 3, NOW(), NOW())
 ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
 
 INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'maxSubCommunities', 10, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'maxSubCommunities', 10, NOW(), NOW())
 ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
 
 INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
@@ -162,11 +188,25 @@ VALUES (gen_random_uuid(), 'FREE', 'maxCustomStamps', 5, NOW(), NOW())
 ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
 
 INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
-VALUES (gen_random_uuid(), 'SUBSCRIBER', 'maxCustomStamps', 100, NOW(), NOW())
+VALUES (gen_random_uuid(), 'PRO', 'maxCustomStamps', 100, NOW(), NOW())
 ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
 
 INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
 VALUES (gen_random_uuid(), 'LIFETIME', 'maxCustomStamps', 100, NOW(), NOW())
+ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
+
+-- ---- LITE プラン数量上限（FREE と同一）----
+INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'maxJoinCommunities', 5, NOW(), NOW())
+ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
+INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'maxRootCommunities', 1, NOW(), NOW())
+ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
+INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'maxSubCommunities', 3, NOW(), NOW())
+ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
+INSERT INTO "UserLimitRestriction" ("id","plan","limitKey","value","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'LITE', 'maxCustomStamps', 5, NOW(), NOW())
 ON CONFLICT ("plan","limitKey") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW();
 
 -- ============================================================
@@ -270,6 +310,15 @@ ON CONFLICT ("grade","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "u
 
 INSERT INTO "CommunityFeatureRestriction" ("id","grade","feature","enabled","createdAt","updatedAt")
 VALUES (gen_random_uuid(), 'PREMIUM', 'AI_INTEGRATION', true, NOW(), NOW())
+ON CONFLICT ("grade","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
+
+-- マッチング（組み合わせ）生成・確認
+INSERT INTO "CommunityFeatureRestriction" ("id","grade","feature","enabled","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'FREE', 'MATCHING', false, NOW(), NOW())
+ON CONFLICT ("grade","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
+
+INSERT INTO "CommunityFeatureRestriction" ("id","grade","feature","enabled","createdAt","updatedAt")
+VALUES (gen_random_uuid(), 'PREMIUM', 'MATCHING', true, NOW(), NOW())
 ON CONFLICT ("grade","feature") DO UPDATE SET "enabled" = EXCLUDED."enabled", "updatedAt" = NOW();
 
 -- ============================================================

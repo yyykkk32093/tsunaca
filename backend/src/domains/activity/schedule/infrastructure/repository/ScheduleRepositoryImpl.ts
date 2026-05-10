@@ -1,5 +1,6 @@
 import { Fee } from '@/domains/_sharedDomains/model/valueObject/Fee.js'
 import { ActivityId } from '@/domains/activity/domain/model/valueObject/ActivityId.js'
+import { ActivityVisibility } from '@/domains/activity/domain/model/valueObject/ActivityVisibility.js'
 import { TimeOfDay } from '@/domains/activity/domain/model/valueObject/TimeOfDay.js'
 import type { Prisma, PrismaClient, Schedule as PrismaSchedule } from '@prisma/client'
 import { Schedule } from '../../domain/model/entity/Schedule.js'
@@ -83,6 +84,7 @@ export class ScheduleRepositoryImpl implements IScheduleRepository {
                 visitorFee: schedule.getVisitorFee()?.amount ?? null,
                 isOnline: schedule.getIsOnline(),
                 meetingUrl: schedule.getMeetingUrl(),
+                visibility: schedule.getVisibilityOverride()?.getValue() ?? null,
                 deletedAt: schedule.getDeletedAt(),
             },
             update: {
@@ -97,6 +99,7 @@ export class ScheduleRepositoryImpl implements IScheduleRepository {
                 visitorFee: schedule.getVisitorFee()?.amount ?? null,
                 isOnline: schedule.getIsOnline(),
                 meetingUrl: schedule.getMeetingUrl(),
+                visibility: schedule.getVisibilityOverride()?.getValue() ?? null,
                 deletedAt: schedule.getDeletedAt(),
             },
         })
@@ -119,6 +122,7 @@ export class ScheduleRepositoryImpl implements IScheduleRepository {
                 visitorFee: s.getVisitorFee()?.amount ?? null,
                 isOnline: s.getIsOnline(),
                 meetingUrl: s.getMeetingUrl(),
+                visibility: s.getVisibilityOverride()?.getValue() ?? null,
             })),
         })
     }
@@ -145,6 +149,7 @@ export class ScheduleRepositoryImpl implements IScheduleRepository {
             visitorFee: row.visitorFee != null ? Fee.reconstruct(row.visitorFee) : null,
             isOnline: row.isOnline,
             meetingUrl: row.meetingUrl,
+            visibility: row.visibility ? ActivityVisibility.reconstruct(row.visibility) : null,
             deletedAt: row.deletedAt,
         })
     }

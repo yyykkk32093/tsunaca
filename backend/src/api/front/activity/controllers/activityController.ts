@@ -5,7 +5,7 @@ export const activityController = {
     async create(req: Request, res: Response, next: NextFunction) {
         try {
             const { communityId } = req.params
-            const { title, description, defaultLocation, defaultAddress, defaultStartTime, defaultEndTime, recurrenceRule, date, participationFee, visitorFee, organizerUserId, isOnline, meetingUrl, capacity, shouldPostAnnouncement, allowVisitorWaitlist, recurrenceGenerationMonths } = req.body
+            const { title, description, defaultPlaceId, defaultLocationCustom, defaultStartTime, defaultEndTime, recurrenceRule, date, participationFee, visitorFee, organizerUserId, isOnline, meetingUrl, capacity, shouldPostAnnouncement, allowVisitorWaitlist, visibility, recurrenceGenerationMonths } = req.body
             const userId = req.user!.userId
 
             const useCase = usecaseFactory.createCreateActivityUseCase()
@@ -13,8 +13,8 @@ export const activityController = {
                 communityId,
                 title,
                 description,
-                defaultLocation,
-                defaultAddress,
+                defaultPlaceId: defaultPlaceId ?? null,
+                defaultLocationCustom: defaultLocationCustom ?? null,
                 defaultStartTime,
                 defaultEndTime,
                 recurrenceRule,
@@ -27,6 +27,7 @@ export const activityController = {
                 capacity: capacity != null ? Number(capacity) : null,
                 userId,
                 allowVisitorWaitlist: allowVisitorWaitlist ?? false,
+                visibility: visibility as 'PUBLIC' | 'PRIVATE' | undefined,
                 shouldPostAnnouncement: shouldPostAnnouncement ?? false,
                 recurrenceGenerationMonths: recurrenceGenerationMonths != null ? Number(recurrenceGenerationMonths) : undefined,
             })
@@ -53,9 +54,10 @@ export const activityController = {
     async findById(req: Request, res: Response, next: NextFunction) {
         try {
             const { id } = req.params
+            const viewerUserId = req.user?.userId ?? null
 
             const useCase = usecaseFactory.createFindActivityUseCase()
-            const result = await useCase.execute({ activityId: id })
+            const result = await useCase.execute({ activityId: id, viewerUserId })
 
             res.status(200).json(result)
         } catch (err) {
@@ -66,7 +68,7 @@ export const activityController = {
     async update(req: Request, res: Response, next: NextFunction) {
         try {
             const { id } = req.params
-            const { title, description, defaultLocation, defaultAddress, defaultStartTime, defaultEndTime, recurrenceRule, organizerUserId, defaultParticipationFee, defaultVisitorFee, defaultCapacity, allowVisitorWaitlist, recurrenceGenerationMonths } = req.body
+            const { title, description, defaultPlaceId, defaultLocationCustom, isOnline, defaultStartTime, defaultEndTime, recurrenceRule, organizerUserId, defaultParticipationFee, defaultVisitorFee, defaultCapacity, allowVisitorWaitlist, visibility, recurrenceGenerationMonths } = req.body
             const userId = req.user!.userId
 
             const useCase = usecaseFactory.createUpdateActivityUseCase()
@@ -75,8 +77,9 @@ export const activityController = {
                 userId,
                 title,
                 description,
-                defaultLocation,
-                defaultAddress,
+                defaultPlaceId,
+                defaultLocationCustom,
+                isOnline,
                 defaultStartTime,
                 defaultEndTime,
                 defaultParticipationFee: defaultParticipationFee !== undefined
@@ -89,6 +92,7 @@ export const activityController = {
                     ? (defaultCapacity != null ? Number(defaultCapacity) : null)
                     : undefined,
                 allowVisitorWaitlist: allowVisitorWaitlist !== undefined ? allowVisitorWaitlist : undefined,
+                visibility: visibility as 'PUBLIC' | 'PRIVATE' | undefined,
                 recurrenceRule,
                 organizerUserId: organizerUserId !== undefined ? (organizerUserId || null) : undefined,
                 recurrenceGenerationMonths: recurrenceGenerationMonths != null ? Number(recurrenceGenerationMonths) : undefined,

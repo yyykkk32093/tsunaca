@@ -8,6 +8,12 @@ export interface CreateConnectAccountResult {
     stripeAccountId: string
 }
 
+export interface CreateConnectAccountInput {
+    mcc?: string | null
+    websiteUrl?: string | null
+    productDescription?: string | null
+}
+
 export interface CreateAccountLinkResult {
     url: string
 }
@@ -37,7 +43,17 @@ export interface IStripeService {
     /**
      * Stripe Connect Express アカウントを作成
      */
-    createConnectAccount(): Promise<CreateConnectAccountResult>
+    createConnectAccount(input?: CreateConnectAccountInput): Promise<CreateConnectAccountResult>
+
+    /**
+     * 既存 Connect アカウントへ事前入力情報を反映
+     */
+    updateConnectAccountPrefill(params: {
+        stripeAccountId: string
+        mcc?: string | null
+        websiteUrl?: string | null
+        productDescription?: string | null
+    }): Promise<void>
 
     /**
      * オンボーディング用の Account Link を生成
@@ -78,6 +94,11 @@ export interface IStripeService {
      * 返金（全額または部分）
      */
     refundPaymentIntent(paymentIntentId: string, amount?: number): Promise<void>
+
+    /**
+     * サブスクリプションをキャンセル（即時終了）
+     */
+    cancelSubscription(subscriptionId: string): Promise<void>
 
     /**
      * Webhook 署名検証

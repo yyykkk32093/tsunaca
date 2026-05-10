@@ -62,9 +62,10 @@ export const communityController = {
     async findById(req: Request, res: Response, next: NextFunction) {
         try {
             const { id } = req.params
+            const viewerUserId = req.user?.userId ?? null
 
             const useCase = usecaseFactory.createFindCommunityUseCase()
-            const result = await useCase.execute({ communityId: id })
+            const result = await useCase.execute({ communityId: id, viewerUserId })
 
             res.status(200).json(result)
         } catch (err) {
@@ -208,7 +209,7 @@ export const communityController = {
         try {
             const { id } = req.params
             const useCase = usecaseFactory.createListSubCommunitiesUseCase()
-            const result = await useCase.execute({ parentId: id })
+            const result = await useCase.execute({ parentId: id, viewerUserId: req.user?.userId ?? null })
             res.status(200).json(result)
         } catch (err) {
             next(err)

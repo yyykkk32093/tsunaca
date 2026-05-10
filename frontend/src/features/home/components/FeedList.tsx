@@ -1,3 +1,7 @@
+import { AdBanner } from '@/features/ads/components/AdBanner'
+import { AdFeedItem } from '@/features/ads/components/AdFeedItem'
+import { isAdFeedMarker } from '@/features/ads/types'
+import { useAdFeed } from '@/features/ads/useAdFeed'
 import { useHomeFeed } from '@/features/home/hooks/useHomeFeed'
 import { Separator } from '@/shared/components/ui/separator'
 import { CalendarCheck, Loader2, Megaphone, Paperclip } from 'lucide-react'
@@ -57,6 +61,7 @@ export function FeedList() {
     // スクロール位置の復元（データ読み込み完了後に一度だけ）
     const allItems = data?.pages.flatMap((p) => p.items) ?? []
     const displayItems = bookmarkOnly ? allItems.filter((item) => item.isBookmarked) : allItems
+    const feedItems = useAdFeed('announcement-feed', displayItems)
     useEffect(() => {
         if (restoredRef.current || allItems.length === 0) return
         const saved = sessionStorage.getItem(SCROLL_KEY)
@@ -127,6 +132,9 @@ export function FeedList() {
                 </button>
             </div>
 
+            {/* [2] お知らせタブ — 絞り込みボタン直下 */}
+            <AdBanner slotId="announcement-filter-below" />
+
             {displayItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                     {bookmarkOnly ? (
@@ -147,12 +155,16 @@ export function FeedList() {
                     )}
                 </div>
             ) : (
-                displayItems.map((item, idx) => (
-                    <div key={item.id}>
-                        {idx > 0 && <Separator />}
-                        <FeedCard item={item} />
-                    </div>
-                ))
+                feedItems.map((item, idx) =>
+                    isAdFeedMarker(item) ? (
+                        <AdFeedItem key={`ad-${idx}`} slotId={item.slotId} />
+                    ) : (
+                        <div key={item.id}>
+                            {idx > 0 && <Separator />}
+                            <FeedCard item={item} />
+                        </div>
+                    ),
+                )
             )}
 
             {/* 無限スクロールのセンチネル */}

@@ -216,4 +216,31 @@ export const chatController = {
             next(err)
         }
     },
+
+    // ================================================================
+    // W5-25: Community channel tree + unread
+    // ================================================================
+
+    async getCommunityChannelTree(req: Request, res: Response, next: NextFunction) {
+        try {
+            const userId = req.user!.userId
+            const useCase = usecaseFactory.createGetCommunityChannelTreeUseCase()
+            const result = await useCase.execute(userId)
+            res.json(result)
+        } catch (err) {
+            next(err)
+        }
+    },
+
+    async markChannelRead(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { channelId } = req.params
+            const userId = req.user!.userId
+            const useCase = usecaseFactory.createMarkChannelReadUseCase()
+            await useCase.execute({ channelId, userId })
+            res.status(204).send()
+        } catch (err) {
+            next(err)
+        }
+    },
 }

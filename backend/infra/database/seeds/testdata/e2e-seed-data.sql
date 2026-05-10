@@ -9,15 +9,39 @@
 BEGIN;
 
 -- ============================================================
+-- 0. PlanMaster（プランマスタ）
+-- ============================================================
+
+INSERT INTO "PlanMaster" ("id", "displayName", "description", "monthlyPrice", "oneTimePrice", "revenuecatProductId", "sortOrder", "availableFrom", "availableTo", "createdAt", "updatedAt")
+VALUES
+  ('FREE',     'Free',     '基本機能が無料で使えるプラン',               NULL, NULL,  NULL,               1, NULL, NULL, NOW(), NOW()),
+  ('LITE',     'Lite',     '広告非表示プラン',                          160,  NULL,  'tsunaca_lite',      2, NULL, NULL, NOW(), NOW()),
+  ('PRO',      'Pro',      '全機能が使えるプレミアムプラン',             480,  NULL,  'tsunaca_pro',       3, NULL, NULL, NOW(), NOW()),
+  ('LIFETIME', 'Lifetime', 'Pro相当の全機能を永久に使える買い切りプラン', NULL, 5980, 'tsunaca_lifetime',  4, NULL, NULL, NOW(), NOW())
+ON CONFLICT ("id") DO NOTHING;
+
+-- ============================================================
 -- 1. テストユーザー（3人）
 -- ============================================================
 
 INSERT INTO "User" ("id", "displayName", "plan", "email", "avatarUrl", "biography", "notificationSetting", "createdAt", "updatedAt")
 VALUES
-  ('e2e00000-0000-4000-a000-000000000101', 'Helena', 'SUBSCRIBER', 'helena@test.com', NULL, 'テストユーザー Helena です', '{}', NOW(), NOW()),
+  ('e2e00000-0000-4000-a000-000000000101', 'Helena', 'PRO', 'helena@test.com', NULL, 'テストユーザー Helena です', '{}', NOW(), NOW()),
   ('e2e00000-0000-4000-a000-000000000102', 'Daniel', 'FREE', 'daniel@test.com', NULL, 'テストユーザー Daniel です', '{}', NOW(), NOW()),
-  ('e2e00000-0000-4000-a000-000000000103', 'Sakura', 'FREE', 'sakura@test.com', NULL, 'テストユーザー Sakura です', '{}', NOW(), NOW())
+  ('e2e00000-0000-4000-a000-000000000103', 'Sakura', 'FREE', 'sakura@test.com', NULL, 'テストユーザー Sakura です', '{}', NOW(), NOW()),
+  -- W6-04 検証用: どのコミュニティにも所属しない outsider ユーザー
+  ('e2e00000-0000-4000-a000-000000000104', 'Outsider', 'FREE', 'outsider@test.com', NULL, 'どのコミュニティにも所属しないテストユーザー', '{}', NOW(), NOW()),
+  -- Wave6 Phase 8-A 検証用: 運営オペレーター（systemRole='OPERATOR'）
+  ('e2e00000-0000-4000-a000-000000000201', 'Operator', 'FREE', 'operator@test.com', NULL, '運営オペレーター用テストユーザー', '{}', NOW(), NOW()),
+  -- Wave6 Phase 8-A 検証用: スーパーアドミン（systemRole='SUPER_ADMIN'）
+  ('e2e00000-0000-4000-a000-000000000202', 'SuperAdmin', 'FREE', 'superadmin@test.com', NULL, 'スーパーアドミン用テストユーザー', '{}', NOW(), NOW())
 ON CONFLICT ("id") DO NOTHING;
+
+-- Wave6 Phase 8-A: 運営権限の付与（既存 USER から昇格させる場合の運用 SQL も兼ねる）
+UPDATE "User" SET "system_role" = 'OPERATOR'
+  WHERE "id" = 'e2e00000-0000-4000-a000-000000000201';
+UPDATE "User" SET "system_role" = 'SUPER_ADMIN'
+  WHERE "id" = 'e2e00000-0000-4000-a000-000000000202';
 
 -- パスワード認証情報
 -- ログインパスワード（全ユーザー共通）: Test1234!
@@ -25,7 +49,10 @@ INSERT INTO "PasswordCredential" ("userId", "hashedPassword", "createdAt", "upda
 VALUES
   ('e2e00000-0000-4000-a000-000000000101', '$2b$10$/v0yU0NLpEk7tep3BkuWIedxeUksLil3sh6ffw81LmEH.jbdar/Hu', NOW(), NOW()),
   ('e2e00000-0000-4000-a000-000000000102', '$2b$10$/v0yU0NLpEk7tep3BkuWIedxeUksLil3sh6ffw81LmEH.jbdar/Hu', NOW(), NOW()),
-  ('e2e00000-0000-4000-a000-000000000103', '$2b$10$/v0yU0NLpEk7tep3BkuWIedxeUksLil3sh6ffw81LmEH.jbdar/Hu', NOW(), NOW())
+  ('e2e00000-0000-4000-a000-000000000103', '$2b$10$/v0yU0NLpEk7tep3BkuWIedxeUksLil3sh6ffw81LmEH.jbdar/Hu', NOW(), NOW()),
+  ('e2e00000-0000-4000-a000-000000000104', '$2b$10$/v0yU0NLpEk7tep3BkuWIedxeUksLil3sh6ffw81LmEH.jbdar/Hu', NOW(), NOW()),
+  ('e2e00000-0000-4000-a000-000000000201', '$2b$10$/v0yU0NLpEk7tep3BkuWIedxeUksLil3sh6ffw81LmEH.jbdar/Hu', NOW(), NOW()),
+  ('e2e00000-0000-4000-a000-000000000202', '$2b$10$/v0yU0NLpEk7tep3BkuWIedxeUksLil3sh6ffw81LmEH.jbdar/Hu', NOW(), NOW())
 ON CONFLICT ("userId") DO NOTHING;
 
 -- AuthSecurityState
@@ -33,7 +60,10 @@ INSERT INTO "auth_security_states" ("user_id", "auth_method", "last_login_at", "
 VALUES
   ('e2e00000-0000-4000-a000-000000000101', 'password', NOW(), 0, NOW(), NOW()),
   ('e2e00000-0000-4000-a000-000000000102', 'password', NOW(), 0, NOW(), NOW()),
-  ('e2e00000-0000-4000-a000-000000000103', 'password', NOW(), 0, NOW(), NOW())
+  ('e2e00000-0000-4000-a000-000000000103', 'password', NOW(), 0, NOW(), NOW()),
+  ('e2e00000-0000-4000-a000-000000000104', 'password', NOW(), 0, NOW(), NOW()),
+  ('e2e00000-0000-4000-a000-000000000201', 'password', NOW(), 0, NOW(), NOW()),
+  ('e2e00000-0000-4000-a000-000000000202', 'password', NOW(), 0, NOW(), NOW())
 ON CONFLICT ("user_id") DO NOTHING;
 
 -- ============================================================
@@ -151,12 +181,30 @@ VALUES
   ('e2e00000-0000-4000-a000-000000000308', 'e2e00000-0000-4000-a000-000000000203', 'e2e00000-0000-4000-a000-000000000101', 'MEMBER', NOW() - INTERVAL '10 days')
 ON CONFLICT ("id") DO NOTHING;
 
+-- Phase10: コミュニティ内レベル（0-8）
+UPDATE "CommunityMembership" SET "level" = 7 WHERE "id" = 'e2e00000-0000-4000-a000-000000000301';
+UPDATE "CommunityMembership" SET "level" = 5 WHERE "id" = 'e2e00000-0000-4000-a000-000000000302';
+UPDATE "CommunityMembership" SET "level" = 3 WHERE "id" = 'e2e00000-0000-4000-a000-000000000303';
+UPDATE "CommunityMembership" SET "level" = 6 WHERE "id" = 'e2e00000-0000-4000-a000-000000000304';
+UPDATE "CommunityMembership" SET "level" = 4 WHERE "id" = 'e2e00000-0000-4000-a000-000000000305';
+UPDATE "CommunityMembership" SET "level" = 2 WHERE "id" = 'e2e00000-0000-4000-a000-000000000306';
+UPDATE "CommunityMembership" SET "level" = 4 WHERE "id" = 'e2e00000-0000-4000-a000-000000000307';
+UPDATE "CommunityMembership" SET "level" = 5 WHERE "id" = 'e2e00000-0000-4000-a000-000000000308';
+
+-- Phase10: カテゴリ別マッチングフォーマット
+INSERT INTO "CategoryMatchFormat" ("id", "categoryId", "name", "playersPerGroup", "groupsPerCourt", "sortOrder", "isDefault", "createdAt", "updatedAt")
+VALUES
+  ('e2e00000-0000-4000-a000-000000000291', 'cat-futsal', '5v5', 5, 2, 1, true, NOW(), NOW()),
+  ('e2e00000-0000-4000-a000-000000000292', 'cat-futsal', '6v6', 6, 2, 2, false, NOW(), NOW()),
+  ('e2e00000-0000-4000-a000-000000000293', 'cat-other', '2v2', 2, 2, 1, true, NOW(), NOW())
+ON CONFLICT ("id") DO NOTHING;
+
 -- ============================================================
 -- 4. アクティビティ（各コミュニティに1〜2個）
 -- ============================================================
 
 -- 週末フットサル
-INSERT INTO "Activity" ("id", "communityId", "title", "description", "defaultLocation", "defaultStartTime", "defaultEndTime",
+INSERT INTO "Activity" ("id", "communityId", "title", "description", "defaultLocationCustom", "defaultStartTime", "defaultEndTime",
   "recurrenceRule", "defaultParticipationFee", "defaultVisitorFee", "defaultCapacity", "allowVisitorWaitlist",
   "createdBy", "createdAt", "updatedAt")
 VALUES
@@ -169,7 +217,7 @@ VALUES
 ON CONFLICT ("id") DO NOTHING;
 
 -- 朝ヨガサークル
-INSERT INTO "Activity" ("id", "communityId", "title", "description", "defaultLocation", "defaultStartTime", "defaultEndTime",
+INSERT INTO "Activity" ("id", "communityId", "title", "description", "defaultLocationCustom", "defaultStartTime", "defaultEndTime",
   "recurrenceRule", "defaultParticipationFee", "defaultVisitorFee", "defaultCapacity", "allowVisitorWaitlist",
   "createdBy", "createdAt", "updatedAt")
 VALUES
@@ -178,15 +226,22 @@ VALUES
    'e2e00000-0000-4000-a000-000000000102', NOW() - INTERVAL '18 days', NOW())
 ON CONFLICT ("id") DO NOTHING;
 
--- 読書クラブ（繰り返しなし = 単発）
-INSERT INTO "Activity" ("id", "communityId", "title", "description", "defaultLocation", "defaultStartTime", "defaultEndTime",
+-- 読書クラブ（繰り返しなし = 単発、オンライン開催）
+INSERT INTO "Activity" ("id", "communityId", "title", "description", "isOnline", "defaultStartTime", "defaultEndTime",
   "recurrenceRule", "defaultParticipationFee", "defaultVisitorFee", "defaultCapacity", "allowVisitorWaitlist",
   "createdBy", "createdAt", "updatedAt")
 VALUES
-  ('e2e00000-0000-4000-a000-000000000404', 'e2e00000-0000-4000-a000-000000000203', '月例読書会', '今月のテーマ本についてディスカッション', 'オンライン (Zoom)', '19:00', '21:00',
+  ('e2e00000-0000-4000-a000-000000000404', 'e2e00000-0000-4000-a000-000000000203', '月例読書会', '今月のテーマ本についてディスカッション', true, '19:00', '21:00',
    NULL, 0, NULL, 15, false,
    'e2e00000-0000-4000-a000-000000000103', NOW() - INTERVAL '12 days', NOW())
 ON CONFLICT ("id") DO NOTHING;
+
+-- W6-04 検証用: 公開コミュニティ内で公開アクティビティ/非公開アクティビティの両パターンを用意
+--   Activity 401 (土曜フットサル) → PUBLIC（非加入ユーザーも閲覧可）
+--   Activity 402 (日曜ミニゲーム) → PRIVATE（既定値、非加入ユーザーは 404）
+--   Activity 403 (モーニングヨガ) → PRIVATE（既定値）
+--   Activity 404 (月例読書会)     → 親コミュニティ自体が非公開のため非加入ユーザーは 404
+UPDATE "Activity" SET "visibility" = 'PUBLIC' WHERE "id" = 'e2e00000-0000-4000-a000-000000000401';
 
 -- ============================================================
 -- 4-b. スケジュール（各アクティビティの初回日程）
@@ -411,6 +466,10 @@ VALUES
   ('e2e00000-0000-4000-a000-00000000070f', 'e2e00000-0000-4000-a000-000000000501', NULL, true, '佐藤花子', 'e2e00000-0000-4000-a000-000000000102', NOW())
 ON CONFLICT DO NOTHING;
 
+-- Phase10: ビジターレベル（0-8）
+UPDATE "Participation" SET "visitorLevel" = 4 WHERE "id" = 'e2e00000-0000-4000-a000-00000000070e';
+UPDATE "Participation" SET "visitorLevel" = 2 WHERE "id" = 'e2e00000-0000-4000-a000-00000000070f';
+
 -- 登録済みビジター参加データ（userId=set, isVisitor=true）
 INSERT INTO "Participation" ("id", "scheduleId", "userId", "isVisitor", "respondedAt")
 VALUES
@@ -483,4 +542,5 @@ COMMIT;
 -- DELETE FROM "PasswordCredential" WHERE "userId" LIKE 'e2e00000-0000-4000-a000-00000000010%';
 -- DELETE FROM "auth_security_states" WHERE "user_id" LIKE 'e2e00000-0000-4000-a000-00000000010%';
 -- DELETE FROM "User" WHERE "id" LIKE 'e2e00000-0000-4000-a000-00000000010%';
+-- DELETE FROM "PlanMaster" WHERE "id" IN ('FREE', 'LITE', 'PRO', 'LIFETIME');
 -- COMMIT;

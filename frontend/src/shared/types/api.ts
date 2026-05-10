@@ -41,10 +41,12 @@ export interface LogoutResponse {
 /** GET /v1/auth/me — レスポンス */
 export interface AuthMeResponse {
     userId: string
-    plan: 'FREE' | 'SUBSCRIBER' | 'LIFETIME'
+    plan: 'FREE' | 'LITE' | 'PRO' | 'LIFETIME'
     displayName: string | null
     email: string
     avatarUrl: string | null
+    /** Wave6 Phase 8-A: プラットフォーム（運営側）権限 */
+    systemRole: 'USER' | 'OPERATOR' | 'SUPER_ADMIN'
     features: Record<string, boolean>
     limits: Record<string, number>
 }
@@ -203,12 +205,19 @@ export interface CreateSubCommunityRequest {
     tags?: string[]
 }
 
-/** GET /v1/communities/:id/children — サブコミュニティ一覧行 */
+/** GET /v1/communities/:id/children — サブコミュニティ一覧行
+ *  W6-01: CommunityCard で一覧表示できるよう CommunityListItem 互換として返す。
+ */
 export interface SubCommunityListItem {
     id: string
+    parentId: string | null
     name: string
+    description: string | null
     logoUrl: string | null
     memberCount: number
+    latestAnnouncementTitle: string | null
+    latestAnnouncementAt: string | null
+    bookmarked: boolean
 }
 
 export interface ListSubCommunitiesResponse {
@@ -226,6 +235,8 @@ export interface Member {
     joinedAt: string
     displayName: string | null
     avatarUrl: string | null
+    /** コミュニティ内レベル（0～8）。未設定は null */
+    level: number | null
 }
 
 export interface ListMembersResponse {
@@ -373,8 +384,8 @@ export interface JoinRequestResponse {
 export interface CreateActivityRequest {
     title: string
     description?: string | null
-    defaultLocation?: string | null
-    defaultAddress?: string | null
+    defaultPlaceId?: string | null
+    defaultLocationCustom?: string | null
     defaultStartTime?: string | null
     defaultEndTime?: string | null
     recurrenceRule?: string | null
@@ -387,6 +398,7 @@ export interface CreateActivityRequest {
     capacity?: number | null
     shouldPostAnnouncement?: boolean  // Phase3 #4
     allowVisitorWaitlist?: boolean
+    visibility?: 'PUBLIC' | 'PRIVATE'
     recurrenceGenerationMonths?: number | null
 }
 
@@ -405,8 +417,18 @@ export interface ActivityListItem {
     communityName: string | null
     title: string
     description: string | null
-    defaultLocation: string | null
-    defaultAddress: string | null
+    defaultPlaceId: string | null
+    defaultLocationCustom: string | null
+    isOnline: boolean
+    /** Place マスタ選択時の詳細情報（lat/lng で Maps リンク、address で住所表示）
+     * FindActivity レスポンスのみ embed。ListActivities では undefined。 */
+    defaultPlace?: {
+        id: string
+        name: string
+        address: string
+        lat: number
+        lng: number
+    } | null
     defaultStartTime: string | null
     defaultEndTime: string | null
     organizerUserId: string | null
@@ -425,6 +447,7 @@ export interface ActivityDetail extends ActivityListItem {
     defaultVisitorFee: number | null
     defaultCapacity: number | null
     allowVisitorWaitlist: boolean
+    visibility: 'PUBLIC' | 'PRIVATE'
     recurrenceRule: string | null
     organizerDisplayName: string | null
     deleted: boolean
@@ -438,8 +461,9 @@ export interface ActivityDetail extends ActivityListItem {
 export interface UpdateActivityRequest {
     title?: string
     description?: string | null
-    defaultLocation?: string | null
-    defaultAddress?: string | null
+    defaultPlaceId?: string | null
+    defaultLocationCustom?: string | null
+    isOnline?: boolean
     defaultStartTime?: string | null
     defaultEndTime?: string | null
     recurrenceRule?: string | null
@@ -448,11 +472,27 @@ export interface UpdateActivityRequest {
     defaultVisitorFee?: number | null
     defaultCapacity?: number | null
     allowVisitorWaitlist?: boolean
+    visibility?: 'PUBLIC' | 'PRIVATE'
     recurrenceGenerationMonths?: number | null
 }
 
 export interface ChangeOrganizerRequest {
     organizerUserId?: string | null
+}
+
+// ============================================================
+// Place (W6-07)
+// ============================================================
+
+/** GET /v1/places/search — レスポンス項目 */
+export interface PlaceSearchItem {
+    id: string
+    name: string
+    address: string
+    lat: number
+    lng: number
+    category: string | null
+    usageCount: number
 }
 
 // ============================================================
@@ -496,6 +536,8 @@ export interface ScheduleListItem {
     isOnline: boolean
     meetingUrl: string | null
     participantCount?: number
+    /** Wave6 W6-08: 決済が紐付くスケジュールだと復元不可 */
+    hasPayments?: boolean
     myStatus?: 'none' | 'attending' | 'waitlisted'
     myParticipationId?: string | null
     myPaymentMethod?: string | null
@@ -868,6 +910,60 @@ export interface MyChannelsResponse {
     community: MyCommunityChannel[]
     activity: MyActivityChannel[]
     dm: MyDMChannel[]
+}
+
+// ============================================================
+// W5-25: Community Channel Tree (unread management)
+// ============================================================
+
+export interface TreeLastMessage {
+    id: string
+    senderId: string
+    content: string
+    createdAt: string
+}
+
+export interface ActivityTreeNode {
+    activityId: string
+    name: string
+    channelId: string | null
+    unreadCount: number
+    scheduleDate: string | null
+    scheduleStartTime: string | null
+    scheduleEndTime: string | null
+    lastMessage: TreeLastMessage | null
+}
+
+export interface CommunityTreeNode {
+    communityId: string
+    name: string
+    logoUrl: string | null
+    channelId: string | null
+    unreadCount: number
+    lastMessage: TreeLastMessage | null
+    children: CommunityTreeNode[]
+}
+
+export interface ActivityCommunityTreeNode {
+    communityId: string
+    communityName: string
+    communityLogoUrl: string | null
+    activities: ActivityTreeNode[]
+    children: ActivityCommunityTreeNode[]
+    unreadCount: number
+}
+
+export interface DMTreeItem {
+    channelId: string
+    participants: string[]
+    unreadCount: number
+    lastMessage: TreeLastMessage | null
+}
+
+export interface CommunityChannelTreeResponse {
+    communities: CommunityTreeNode[]
+    activityTree: ActivityCommunityTreeNode[]
+    dm: DMTreeItem[]
 }
 
 // ============================================================

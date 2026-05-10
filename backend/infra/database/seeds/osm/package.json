@@ -1,0 +1,21 @@
+{
+    "name": "@tsunaca/osm-master-importer",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "osm:download": "bash ./download.sh",
+        "osm:extract": "tsx ./extract.ts",
+        "osm:transform": "tsx ./transform.ts",
+        "osm:import": "tsx ./import.ts",
+        "osm:run-all": "pnpm osm:download && pnpm osm:extract && pnpm osm:transform && pnpm osm:import"
+    },
+    "dependencies": {
+        "@prisma/client": "*",
+        "tsx": "^4.0.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0"
+    }
+}

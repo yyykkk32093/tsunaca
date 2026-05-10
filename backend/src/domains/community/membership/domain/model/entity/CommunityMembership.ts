@@ -14,6 +14,7 @@ export class CommunityMembership extends AggregateRoot {
         private role: MembershipRole,
         private readonly joinedAt: Date,
         private leftAt: Date | null,
+        private level: number | null,
     ) {
         super()
     }
@@ -26,6 +27,7 @@ export class CommunityMembership extends AggregateRoot {
         communityId: CommunityId
         userId: UserId
         role: MembershipRole
+        level?: number | null
     }): CommunityMembership {
         return new CommunityMembership(
             params.id,
@@ -34,6 +36,8 @@ export class CommunityMembership extends AggregateRoot {
             params.role,
             new Date(),
             null,
+            // メインカテゴリ基準の初期レベル。未指定時は Lv4（中級）をデフォルト値とする。
+            params.level !== undefined ? params.level : 4,
         )
     }
 
@@ -47,6 +51,7 @@ export class CommunityMembership extends AggregateRoot {
         role: MembershipRole
         joinedAt: Date
         leftAt: Date | null
+        level: number | null
     }): CommunityMembership {
         return new CommunityMembership(
             params.id,
@@ -55,6 +60,7 @@ export class CommunityMembership extends AggregateRoot {
             params.role,
             params.joinedAt,
             params.leftAt,
+            params.level,
         )
     }
 
@@ -65,6 +71,19 @@ export class CommunityMembership extends AggregateRoot {
             throw new DomainValidationError('脱退済みメンバーのロールは変更できません', 'MEMBERSHIP_ALREADY_LEFT')
         }
         this.role = newRole
+    }
+
+    /**
+     * コミュニティ内レベルを変更。null でクリア。
+     */
+    changeLevel(newLevel: number | null): void {
+        if (!this.isActive()) {
+            throw new DomainValidationError('脱退済みメンバーのレベルは変更できません', 'MEMBERSHIP_ALREADY_LEFT')
+        }
+        if (newLevel !== null && (!Number.isInteger(newLevel) || newLevel < 0 || newLevel > 8)) {
+            throw new DomainValidationError('レベルは0〜8の整数で指定してください', 'INVALID_MEMBERSHIP_LEVEL')
+        }
+        this.level = newLevel
     }
 
     leave(): void {
@@ -96,4 +115,5 @@ export class CommunityMembership extends AggregateRoot {
     getRole(): MembershipRole { return this.role }
     getJoinedAt(): Date { return this.joinedAt }
     getLeftAt(): Date | null { return this.leftAt }
+    getLevel(): number | null { return this.level }
 }

@@ -8,7 +8,6 @@ import { useParams } from 'react-router-dom'
  * MemberListPage — メンバー一覧画面（UBL-33）
  *
  * コミュニティのメンバーをアバター + 名前 + ロールで表示。
- * 表示のみ（操作はコミュニティ設定画面 UBL-10 に集約）。
  */
 export function MemberListPage() {
     const { id: communityId } = useParams<{ id: string }>()

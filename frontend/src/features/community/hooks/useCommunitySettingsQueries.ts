@@ -24,6 +24,19 @@ export function useChangeMemberRole(communityId: string) {
     })
 }
 
+/** メンバーのコミュニティ内レベル変更 */
+export function useUpdateMemberLevel(communityId: string) {
+    const qc = useQueryClient()
+    return useMutation({
+        mutationFn: ({ userId, level }: { userId: string; level: number | null }) =>
+            communityApi.updateMemberLevel(communityId, userId, level),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: memberKeys.list(communityId) })
+            qc.invalidateQueries({ queryKey: auditLogKeys.byCommunity(communityId) })
+        },
+    })
+}
+
 /** メンバー強制退室 */
 export function useRemoveMember(communityId: string) {
     const qc = useQueryClient()

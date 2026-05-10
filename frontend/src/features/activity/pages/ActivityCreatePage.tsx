@@ -24,8 +24,8 @@ export function ActivityCreatePage() {
             const result = await createMutation.mutateAsync({
                 title: values.title,
                 description: values.description || undefined,
-                defaultLocation: values.defaultLocation || undefined,
-                defaultAddress: values.defaultAddress || undefined,
+                defaultPlaceId: values.defaultPlaceId || null,
+                defaultLocationCustom: values.defaultLocationCustom || null,
                 defaultStartTime: values.defaultStartTime || undefined,
                 defaultEndTime: values.defaultEndTime || undefined,
                 recurrenceRule: values.recurrenceRule,
@@ -38,6 +38,7 @@ export function ActivityCreatePage() {
                 capacity: values.capacity,
                 shouldPostAnnouncement: values.shouldPostAnnouncement,
                 allowVisitorWaitlist: values.allowVisitorWaitlist,
+                visibility: values.visibility === 'public' ? 'PUBLIC' : 'PRIVATE',
                 recurrenceGenerationMonths: values.recurrenceGenerationMonths,
             })
 

@@ -1,5 +1,7 @@
 import type { IActivityRepository } from '@/domains/activity/domain/repository/IActivityRepository.js'
 import type { ICommunityRepository } from '@/domains/community/domain/repository/ICommunityRepository.js'
+import type { ICommunityMembershipRepository } from '@/domains/community/membership/domain/repository/ICommunityMembershipRepository.js'
+import type { IPlaceRepository } from '@/domains/place/domain/repository/IPlaceRepository.js'
 import type { IUserRepository } from '@/domains/user/domain/repository/IUserRepository.js'
 import { ActivityNotFoundError } from '../error/ActivityNotFoundError.js'
 
@@ -8,22 +10,33 @@ export class FindActivityUseCase {
         private readonly activityRepository: IActivityRepository,
         private readonly userRepository: IUserRepository,
         private readonly communityRepository: ICommunityRepository,
+        private readonly membershipRepository: ICommunityMembershipRepository,
+        private readonly placeRepository: IPlaceRepository,
     ) { }
 
-    async execute(input: { activityId: string }): Promise<{
+    async execute(input: { activityId: string; viewerUserId?: string | null }): Promise<{
         id: string
         communityId: string
         communityName: string | null
         title: string
         description: string | null
-        defaultLocation: string | null
-        defaultAddress: string | null
+        defaultPlaceId: string | null
+        defaultLocationCustom: string | null
+        isOnline: boolean
+        defaultPlace: {
+            id: string
+            name: string
+            address: string
+            lat: number
+            lng: number
+        } | null
         defaultStartTime: string | null
         defaultEndTime: string | null
         defaultParticipationFee: number | null
         defaultVisitorFee: number | null
         defaultCapacity: number | null
         allowVisitorWaitlist: boolean
+        visibility: 'PUBLIC' | 'PRIVATE'
         recurrenceRule: string | null
         organizerUserId: string | null
         organizerDisplayName: string | null
@@ -46,6 +59,24 @@ export class FindActivityUseCase {
 
         const deleted = activity.isDeleted()
 
+        // コミュニティを取得して認可判定に使う
+        const community = await this.communityRepository.findById(
+            activity.getCommunityId().getValue(),
+        )
+        if (!community) throw new ActivityNotFoundError()
+
+        // Wave6 W6-04: 認可チェック
+        // - 非公開Communityは会員のみ
+        // - PRIVATE Activity は会員のみ
+        // - PUBLIC Activity に関しても v1 ではビジター参加未実装のため、Communityのアクセスルールに従う
+        const isMember = await this.isActiveMember(community.getId().getValue(), input.viewerUserId)
+        if (!community.getIsPublic() && !isMember) {
+            throw new ActivityNotFoundError() // 存在秘匿
+        }
+        if (!isMember && activity.getVisibility().isPrivate()) {
+            throw new ActivityNotFoundError() // 存在秘匿
+        }
+
         const createdByUserId = activity.getCreatedBy().getValue()
         const user = await this.userRepository.findById(createdByUserId)
 
@@ -61,10 +92,21 @@ export class FindActivityUseCase {
             }
         }
 
-        // コミュニティの支払い設定を取得
-        const community = await this.communityRepository.findById(
-            activity.getCommunityId().getValue(),
-        )
+        // defaultPlaceId がある場合、Place 情報を embed
+        const defaultPlaceId = activity.getDefaultPlaceId()
+        let defaultPlace: { id: string; name: string; address: string; lat: number; lng: number } | null = null
+        if (defaultPlaceId) {
+            const place = await this.placeRepository.findById(defaultPlaceId)
+            if (place) {
+                defaultPlace = {
+                    id: place.getId().getValue(),
+                    name: place.getName().getValue(),
+                    address: place.getAddress().getValue(),
+                    lat: place.getCoordinate().getLatitude(),
+                    lng: place.getCoordinate().getLongitude(),
+                }
+            }
+        }
 
         return {
             id: activity.getId().getValue(),
@@ -72,14 +114,17 @@ export class FindActivityUseCase {
             communityName: community?.getName().getValue() ?? null,
             title: activity.getTitle().getValue(),
             description: activity.getDescription()?.getValue() ?? null,
-            defaultLocation: activity.getDefaultLocation()?.getValue() ?? null,
-            defaultAddress: activity.getDefaultAddress(),
+            defaultPlaceId: activity.getDefaultPlaceId(),
+            defaultLocationCustom: activity.getDefaultLocationCustom(),
+            isOnline: activity.getIsOnline(),
+            defaultPlace,
             defaultStartTime: activity.getDefaultStartTime()?.getValue() ?? null,
             defaultEndTime: activity.getDefaultEndTime()?.getValue() ?? null,
             defaultParticipationFee: activity.getDefaultParticipationFee()?.amount ?? null,
             defaultVisitorFee: activity.getDefaultVisitorFee()?.amount ?? null,
             defaultCapacity: activity.getDefaultCapacity(),
             allowVisitorWaitlist: activity.getAllowVisitorWaitlist(),
+            visibility: activity.getVisibility().getValue(),
             recurrenceRule: activity.getRecurrenceRule(),
             organizerUserId,
             organizerDisplayName,
@@ -92,5 +137,12 @@ export class FindActivityUseCase {
                 stripeAccountId: community?.getStripeAccountId() ?? null,
             },
         }
+    }
+
+    private async isActiveMember(communityId: string, viewerUserId: string | null | undefined): Promise<boolean> {
+        if (!viewerUserId) return false
+        const m = await this.membershipRepository.findByCommunityAndUser(communityId, viewerUserId)
+        if (!m) return false
+        return m.getLeftAt() === null
     }
 }

@@ -20,4 +20,8 @@ router.patch('/v1/users/me', authMiddleware, validateBody(updateUserProfileSchem
 // ---- 退会 ----
 router.delete('/v1/users/me', authMiddleware, validateBody(deleteUserSchema), userController.deleteAccount)
 
+// ---- Wave6 Phase 9b-05: ロケール ----
+router.get('/v1/users/me/locale', authMiddleware, userController.getLocale)
+router.patch('/v1/users/me/locale', authMiddleware, userController.updateLocale)
+
 export default router

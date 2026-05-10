@@ -23,6 +23,9 @@ export const scheduleApi = {
     cancel: (id: string) =>
         http<void>(`/v1/schedules/${id}/cancel`, { method: 'PATCH' }),
 
+    restore: (id: string) =>
+        http<void>(`/v1/schedules/${id}/restore`, { method: 'POST' }),
+
     cancelOrDelete: (id: string, data: {
         operation: 'cancel' | 'delete'
         scope: 'single' | 'all'

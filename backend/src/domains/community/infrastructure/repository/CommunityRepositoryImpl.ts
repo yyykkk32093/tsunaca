@@ -376,23 +376,50 @@ export class CommunityRepositoryImpl implements ICommunityRepository {
         return rows.map((r) => r.id)
     }
 
-    /** 子コミュニティ一覧（詳細付き：カルーセル表示用） */
-    async findChildrenWithDetails(parentId: string): Promise<import('../../domain/repository/ICommunityRepository.js').SubCommunityListItem[]> {
+    /** 子コミュニティ一覧（詳細付き：カルーセル/CommunityCard表示用） */
+    async findChildrenWithDetails(parentId: string, viewerUserId: string | null): Promise<import('../../domain/repository/ICommunityRepository.js').SubCommunityListItem[]> {
         const rows = await this.prisma.community.findMany({
             where: { parentId, deletedAt: null },
             select: {
                 id: true,
+                parentId: true,
                 name: true,
+                description: true,
                 logoUrl: true,
                 _count: { select: { memberships: { where: { leftAt: null } } } },
+                announcements: {
+                    where: { deletedAt: null },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1,
+                    select: { title: true, createdAt: true },
+                },
             },
             orderBy: { createdAt: 'asc' },
         })
-        return rows.map((r) => ({
-            id: r.id,
-            name: r.name,
-            logoUrl: r.logoUrl,
-            memberCount: r._count.memberships,
-        }))
+
+        // W6-01: viewer の bookmark 状態を一括取得
+        let bookmarkedIds = new Set<string>()
+        if (viewerUserId && rows.length > 0) {
+            const bookmarks = await this.prisma.communityBookmark.findMany({
+                where: { userId: viewerUserId, communityId: { in: rows.map(r => r.id) } },
+                select: { communityId: true },
+            })
+            bookmarkedIds = new Set(bookmarks.map(b => b.communityId))
+        }
+
+        return rows.map((r) => {
+            const latestAnn = r.announcements[0] ?? null
+            return {
+                id: r.id,
+                parentId: r.parentId,
+                name: r.name,
+                description: r.description,
+                logoUrl: r.logoUrl,
+                memberCount: r._count.memberships,
+                latestAnnouncementTitle: latestAnn?.title ?? null,
+                latestAnnouncementAt: latestAnn?.createdAt ?? null,
+                bookmarked: bookmarkedIds.has(r.id),
+            }
+        })
     }
 }

@@ -7,6 +7,9 @@ import { ScheduleDndConfirmDialog, type DndAction } from '@/features/activity/co
 import { ScheduleSelectDialog } from '@/features/activity/components/dnd/ScheduleSelectDialog'
 import { useActivities } from '@/features/activity/hooks/useActivityQueries'
 import { useScheduleDnd } from '@/features/activity/hooks/useScheduleDnd'
+import { AdBanner } from '@/features/ads/components/AdBanner'
+import { AdFeedItem } from '@/features/ads/components/AdFeedItem'
+import { useAd } from '@/features/ads/useAd'
 import { useMyRole } from '@/features/community/hooks/useCommunityQueries'
 import { useMembers } from '@/features/community/hooks/useMemberQueries'
 import { Calendar } from '@/shared/components/ui/calendar'
@@ -18,7 +21,7 @@ import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSens
 import { useQuery } from '@tanstack/react-query'
 import { endOfMonth, format, startOfMonth } from 'date-fns'
 import { Search } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { Fragment, useCallback, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 /**
@@ -155,6 +158,11 @@ function TimelineSubTab({ communityId }: { communityId: string }) {
         [scheduleItems],
     )
 
+    // フィード広告の表示判定
+    const timelineFeedAd = useAd('activity-timeline-feed')
+    const feedInterval = timelineFeedAd.config?.feedInterval ?? 4
+    const showFeedAd = timelineFeedAd.shouldShow && scheduleItems.length >= (timelineFeedAd.config?.feedMinItems ?? feedInterval)
+
     return (
         <div className="relative">
             <div className="px-4 py-3 space-y-2">
@@ -178,39 +186,54 @@ function TimelineSubTab({ communityId }: { communityId: string }) {
                 </label>
             </div>
 
+            {/* タイムライン — 検索フィルタ直下 */}
+            <AdBanner slotId="activity-timeline-past-below" />
+
             {isLoading ? (
                 <div className="py-8 text-center text-gray-400 text-sm">読み込み中...</div>
             ) : monthGroups.length > 0 ? (
                 <div>
-                    {monthGroups.map((mg) => {
-                        const [y, m] = mg.month.split('-')
-                        return (
-                            <div key={mg.month}>
-                                <div className="px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500">
-                                    {y}年{Number(m)}月
-                                </div>
-                                {mg.dateGroups.map((dg) => (
-                                    <div key={dg.date} className="flex border-b border-gray-100">
-                                        {/* 左列: 日付 + 曜日 */}
-                                        <div className="w-14 shrink-0 flex flex-col items-center justify-start pt-3 text-gray-500">
-                                            <span className="text-lg font-semibold leading-none">{formatDay(dg.date)}</span>
-                                            <span className="text-[10px] mt-0.5">{formatWeekday(dg.date)}</span>
-                                        </div>
-                                        {/* 右列: その日のカード群 */}
-                                        <div className="flex-1 min-w-0 divide-y divide-gray-50">
-                                            {dg.items.map((s) => (
-                                                <ScheduleCard
-                                                    key={`${s.activityId}-${s.date}-${s.startTime}`}
-                                                    schedule={s}
-                                                    timeOnly
-                                                />
-                                            ))}
-                                        </div>
+                    {/* タイムラインフィード広告（日付グループ間に挿入） */}
+                    {(() => {
+                        let itemCount = 0
+                        return monthGroups.map((mg) => {
+                            const [y, m] = mg.month.split('-')
+                            return (
+                                <div key={mg.month}>
+                                    <div className="px-4 py-2 bg-gray-50 text-xs font-semibold text-gray-500">
+                                        {y}年{Number(m)}月
                                     </div>
-                                ))}
-                            </div>
-                        )
-                    })}
+                                    {mg.dateGroups.map((dg) => {
+                                        const prev = itemCount
+                                        itemCount += dg.items.length
+                                        const insertAd = showFeedAd && Math.floor(itemCount / feedInterval) > Math.floor(prev / feedInterval)
+                                        return (
+                                            <Fragment key={dg.date}>
+                                                <div className="flex border-b border-gray-100">
+                                                    {/* 左列: 日付 + 曜日 */}
+                                                    <div className="w-14 shrink-0 flex flex-col items-center justify-start pt-3 text-gray-500">
+                                                        <span className="text-lg font-semibold leading-none">{formatDay(dg.date)}</span>
+                                                        <span className="text-[10px] mt-0.5">{formatWeekday(dg.date)}</span>
+                                                    </div>
+                                                    {/* 右列: その日のカード群 */}
+                                                    <div className="flex-1 min-w-0 divide-y divide-gray-50">
+                                                        {dg.items.map((s) => (
+                                                            <ScheduleCard
+                                                                key={`${s.activityId}-${s.date}-${s.startTime}`}
+                                                                schedule={s}
+                                                                timeOnly
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                {insertAd && <AdFeedItem slotId="activity-timeline-feed" />}
+                                            </Fragment>
+                                        )
+                                    })}
+                                </div>
+                            )
+                        })
+                    })()}
                 </div>
             ) : (
                 <p className="py-12 text-center text-gray-400 text-sm">
@@ -359,6 +382,9 @@ function CalendarSubTab({ communityId }: { communityId: string }) {
                     />
                 </CalendarSchedulesContext.Provider>
             </div>
+
+            {/* カレンダーUI直下 */}
+            <AdBanner slotId="activity-calendar-below" />
 
             <div className="mt-4">
                 {isLoading ? (

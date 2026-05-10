@@ -13,7 +13,9 @@ export class ListActivitiesUseCase {
             communityId: string
             title: string
             description: string | null
-            defaultLocation: string | null
+            defaultPlaceId: string | null
+            defaultLocationCustom: string | null
+            isOnline: boolean
             defaultStartTime: string | null
             defaultEndTime: string | null
             organizerUserId: string | null
@@ -40,8 +42,9 @@ export class ListActivitiesUseCase {
                     communityId: a.getCommunityId().getValue(),
                     title: a.getTitle().getValue(),
                     description: a.getDescription()?.getValue() ?? null,
-                    defaultLocation: a.getDefaultLocation()?.getValue() ?? null,
-                    defaultAddress: a.getDefaultAddress(),
+                    defaultPlaceId: a.getDefaultPlaceId(),
+                    defaultLocationCustom: a.getDefaultLocationCustom(),
+                    isOnline: a.getIsOnline(),
                     defaultStartTime: a.getDefaultStartTime()?.getValue() ?? null,
                     defaultEndTime: a.getDefaultEndTime()?.getValue() ?? null,
                     organizerUserId: a.getOrganizerUserId()?.getValue() ?? null,

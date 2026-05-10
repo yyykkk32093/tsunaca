@@ -1,3 +1,4 @@
+import { AdBanner } from '@/features/ads/components/AdBanner'
 import {
     useJoinCommunity,
     useJoinRequest,
@@ -162,6 +163,9 @@ export function CommunityJoinPage() {
                             : '参加リクエストを送信する'}
                 </Button>
             </div>
+
+            {/* [6] コミュニティ参加 — 送信ボタン直下 */}
+            <AdBanner slotId="community-join-below" />
         </div>
     )
 }
